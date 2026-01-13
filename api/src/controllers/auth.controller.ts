@@ -1,11 +1,16 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { authenticateUser, createUser } from "../services/auth.service";
+import { AppError } from "../utils/AppError";
 
-export const register = async (req: Request, res: Response) => {
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const { name, email, password, role } = req.body;
 
   if (!name || !email || !password || !role) {
-    res.status(401).json({ message: "Missing Required Fields" });
+    next(new AppError(401, "Missing Required Fields"));
     return;
   }
 
@@ -16,16 +21,21 @@ export const register = async (req: Request, res: Response) => {
     return;
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-    return;
+    next(error);
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const { email, password } = req.body;
 
-  if (!email || !password)
-    res.status(401).json({ message: "Missing Required Fields" });
+  if (!email || !password) {
+    next(new AppError(401, "Missing Required Fields"));
+    return;
+  }
 
   try {
     const user = await authenticateUser(email, password);
@@ -34,7 +44,6 @@ export const login = async (req: Request, res: Response) => {
     return;
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-    return;
+    next(error);
   }
 };
