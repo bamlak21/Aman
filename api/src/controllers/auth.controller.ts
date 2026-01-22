@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { authenticateUser, createUser } from "../services/auth.service";
 import { AppError } from "../utils/AppError";
+import { generateToken } from "../utils/jwt";
+import { JwtPayload } from "../types/auth";
 
 export const register = async (
   req: Request,
@@ -17,7 +19,15 @@ export const register = async (
   try {
     const user = await createUser(name, email, password, role);
 
-    res.status(201).json({ message: "success", user });
+    const payload: JwtPayload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const token = generateToken(payload);
+
+    res.status(201).json({ message: "success", user, token });
     return;
   } catch (error) {
     console.error(error);
@@ -40,7 +50,15 @@ export const login = async (
   try {
     const user = await authenticateUser(email, password);
 
-    res.status(200).json({ message: "success", user });
+    const payload: JwtPayload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const token = generateToken(payload);
+
+    res.status(200).json({ message: "success", user, token });
     return;
   } catch (error) {
     console.error(error);
