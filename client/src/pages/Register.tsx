@@ -1,7 +1,7 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
 import type { RegUser } from "../types/auth";
-import { registerUser } from "../api/auth";
+import { auth } from "../api/auth";
 
 const Register = () => {
   const {
@@ -15,8 +15,7 @@ const Register = () => {
   });
 
   const submit = (data: RegUser) => {
-    console.log(data);
-    registerUser(data);
+    auth.register(data);
   };
 
   return (
