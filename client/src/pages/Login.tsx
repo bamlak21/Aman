@@ -1,9 +1,11 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
 import type { UserLogin } from "../types/auth";
-import { login } from "../api/auth";
+import { auth } from "../api/auth";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
+  const navigate = useNavigate();
   const {
     register,
     handleSubmit,
@@ -11,8 +13,10 @@ const Login = () => {
   } = useForm<UserLogin>();
 
   const submit = async (data: UserLogin) => {
-    console.log(data);
-    login(data);
+    const d = await auth.login(data);
+
+    localStorage.setItem("token", d.token);
+    navigate("/dashboard");
   };
 
   return (
