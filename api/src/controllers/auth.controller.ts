@@ -3,11 +3,12 @@ import { authenticateUser, createUser } from "../services/auth.service";
 import { AppError } from "../utils/AppError";
 import { generateToken } from "../utils/jwt";
 import { JwtPayload } from "../types/auth";
+import { UserRole } from "../types/user";
 
 export const register = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { name, email, password, role } = req.body;
 
@@ -17,7 +18,17 @@ export const register = async (
   }
 
   try {
-    const user = await createUser(name, email, password, role);
+    let newRole: UserRole;
+
+    if (role === "client") {
+      newRole = "payer";
+    } else if (role === "freelancer") {
+      newRole = "payee";
+    } else {
+      next(new AppError(400, "Error"));
+      return;
+    }
+    const user = await createUser(name, email, password, newRole);
 
     const payload: JwtPayload = {
       id: user.id,
@@ -38,7 +49,7 @@ export const register = async (
 export const login = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { email, password } = req.body;
 
