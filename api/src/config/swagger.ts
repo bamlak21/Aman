@@ -11,9 +11,18 @@ export const swaggerSpec = swaggerJSDoc({
     },
     servers: [
       {
-        url: `https://localhost:${config.port}`,
+        url: `http://localhost:${config.port}`,
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
   },
   apis: ["./src/routes/**/*.ts"],
 });
