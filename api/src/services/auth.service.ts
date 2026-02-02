@@ -9,8 +9,8 @@ export const createUser = async (
   name: string,
   email: string,
   password: string,
-  role: UserRole
-): Promise<User | void> => {
+  role: UserRole,
+): Promise<User> => {
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
   });
@@ -38,8 +38,8 @@ export const createUser = async (
 
 export const authenticateUser = async (
   email: string,
-  password: string
-): Promise<User | void> => {
+  password: string,
+): Promise<User> => {
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
   });

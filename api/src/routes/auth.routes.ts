@@ -102,9 +102,9 @@ router.post("/register", register);
  *               - password
  *             properties:
  *               email:
- *                 type: string
+ *                 type: hi@bamlak.dev
  *               password:
- *                 type: string
+ *                 type: 12345678
  *     responses:
  *       200:
  *         description: The user was successfully logged in
