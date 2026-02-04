@@ -13,4 +13,9 @@ export const config = {
     (() => {
       throw new Error("PG_URL is missing");
     })(),
+  secret:
+    process.env.SECRET ||
+    (() => {
+      throw new Error("Secret is missing");
+    })(),
 };
