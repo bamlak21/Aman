@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../config/db";
-import { escrow, escrowParties } from "../drizzle/schema";
+import { escrow, escrowParties, transactions } from "../drizzle/schema";
 import { AppError } from "../utils/AppError";
 
 type CreateEscrowInput = {
@@ -66,7 +66,11 @@ export const fetchEscrow = async (id: string, userId: string) => {
     throw new AppError(403, "You are not allowed to access this escrow");
 
   return {
-    escrow: esc,
+    id: esc.id,
+    amount: esc.amountCents,
+    releaseConditions: esc.releaseCondition,
+    status: esc.status,
+    expiresAt: esc.expiresAt,
     parties,
   };
 };
@@ -84,4 +88,44 @@ export const fetchEscrows = async (userId: string) => {
   return rows.map((row) => ({ ...row.escrow, myRole: row.role }));
 };
 
-export const fundEscrow = async () => {};
+export const fundEscrow = async (escrowId: string, userId: string) => {
+  const escrowData = await fetchEscrow(escrowId, userId);
+
+  return await db.transaction(async (tx) => {
+    const payer = escrowData.parties.find(
+      (party) => party.userId === userId && party.role === "payer",
+    );
+    if (!payer) throw new AppError(403, "Only the payer can fund escrow");
+
+    const [updatedEscrow] = await tx
+      .update(escrow)
+      .set({ status: "funded" })
+      .where(and(eq(escrow.id, escrowId), eq(escrow.status, "created")))
+      .returning({
+        id: escrow.id,
+        amount: escrow.amountCents,
+        status: escrow.status,
+        releaseCondition: escrow.releaseCondition,
+        expiresAt: escrow.expiresAt,
+      });
+
+    if (!updatedEscrow) {
+      throw new AppError(409, "Escrow already funded");
+    }
+
+    const [txn] = await tx
+      .insert(transactions)
+      .values({
+        escrowId: escrowData.id,
+        amountCents: escrowData.amount,
+        type: "deposit",
+        fromAccount: payer.id,
+        toAccount: null,
+      })
+      .returning();
+
+    console.log(txn);
+
+    return updatedEscrow;
+  });
+};

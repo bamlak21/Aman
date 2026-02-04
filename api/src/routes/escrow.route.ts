@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   create,
+  fundEscrowByPayer,
   getEscrowById,
   getUserEscrows,
 } from "../controllers/escrow.controller";
@@ -264,5 +265,86 @@ router.get("/:escrowId", protect, getEscrowById);
  *                   example: 500
  */
 router.get("/", protect, getUserEscrows);
+
+/**
+ * @swagger
+ * /api/escrow/{id}/fund:
+ *   patch:
+ *     summary: Fund an escrow transaction
+ *     description: Update an escrow status to 'funded' by the payer
+ *     tags: [Escrow]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The unique identifier of the escrow to fund
+ *         example: "550e8400-e29b-41d4-a716-446655440000"
+ *     responses:
+ *       200:
+ *         description: Escrow successfully funded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Updated Escrow"
+ *                 escrow:
+ *                   $ref: '#/components/schemas/Escrow'
+ *             example:
+ *               message: "Updated Escrow"
+ *               escrow:
+ *                 id: "550e8400-e29b-41d4-a716-446655440000"
+ *                 amountCents: 10000
+ *                 releaseCondition: "manual"
+ *                 status: "funded"
+ *                 expiresAt: "2024-12-31T23:59:59.000Z"
+ *       401:
+ *         description: Bad Request - escrow ID is missing or invalid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Missing Required Fields"
+ *                 statusCode:
+ *                   type: number
+ *                   example: 401
+ *       403:
+ *         description: Forbidden - user is not authorized to fund this escrow
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "An authorized access"
+ *                 statusCode:
+ *                   type: number
+ *                   example: 403
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Internal Server Error"
+ *                 statusCode:
+ *                   type: number
+ *                   example: 500
+ */
+router.patch("/:id/fund", protect, fundEscrowByPayer);
 
 export default router;
