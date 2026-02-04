@@ -17,7 +17,7 @@ export const conditions = pgEnum("conditions", [
 
 export const escrow = pgTable("escrow", {
   id: uuid("id").primaryKey().defaultRandom(),
-  amountCents: bigint("amount_cents", { mode: "number" }),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
   status: escrowStatus("status").default("created").notNull(),
   releaseCondition: conditions("release_conditions").default("manual"),
   expiresAt: timestamp("expires_at", { withTimezone: true })
