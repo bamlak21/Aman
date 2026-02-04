@@ -13,7 +13,7 @@ export const transactions = pgTable("transactions", {
   id: uuid("id").primaryKey().defaultRandom(),
   escrowId: uuid("escrow_id").references(() => escrow.id),
   type: txnTypes("type").notNull(),
-  amountCents: bigint("amount_cents", { mode: "number" }),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
   fromAccount: uuid("from_account").references(() => users.id),
   toAccount: uuid("to_account").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
