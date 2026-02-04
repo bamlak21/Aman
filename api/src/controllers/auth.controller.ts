@@ -1,7 +1,17 @@
 import { NextFunction, Request, Response } from "express";
-import { authenticateUser, createUser } from "../services/auth.service";
+import {
+  authenticateUser,
+  createUser,
+  renewToken,
+  revokeToken,
+  saveRefreshToken,
+} from "../services/auth.service";
 import { AppError } from "../utils/AppError";
-import { generateToken } from "../utils/jwt";
+import {
+  generateRefreshToken,
+  generateToken,
+  verifyRefreshToken,
+} from "../utils/jwt";
 import { JwtPayload } from "../types/auth";
 import { UserRole } from "../types/user";
 
@@ -36,9 +46,20 @@ export const register = async (
       role: user.role,
     };
 
-    const token = generateToken(payload);
+    const accessToken = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    res.status(201).json({ message: "success", user, token });
+    await saveRefreshToken(refreshToken, user.id);
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/auth/token",
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({ message: "success", user, accessToken });
     return;
   } catch (error) {
     console.error(error);
@@ -67,12 +88,75 @@ export const login = async (
       role: user.role,
     };
 
-    const token = generateToken(payload);
+    const accessToken = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    res.status(200).json({ message: "success", user, token });
+    await saveRefreshToken(refreshToken, user.id);
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/auth/token",
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({ message: "success", user, accessToken });
     return;
   } catch (error) {
     console.error(error);
+    next(error);
+  }
+};
+
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const token = req.cookies.refresh_token;
+  if (!token) {
+    next(new AppError(403, "Token missing"));
+    return;
+  }
+
+  try {
+    const payload = verifyRefreshToken(token);
+
+    const tokens = await renewToken(token, payload);
+
+    res.cookie("refresh_token", tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/auth/token",
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({ accessToken: tokens.accessToken });
+
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const token = req.cookies.refresh_token;
+
+  if (!token) next(new AppError(403, "Token missing"));
+
+  try {
+    await revokeToken(token);
+    res.clearCookie("refresh_token", { path: "/auth/token" });
+    res.sendStatus(204);
+
+    return;
+  } catch (error) {
     next(error);
   }
 };
