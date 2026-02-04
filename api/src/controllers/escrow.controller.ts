@@ -3,6 +3,7 @@ import {
   createEscrow,
   fetchEscrow,
   fetchEscrows,
+  fundEscrow,
 } from "../services/escrow.service";
 import { AuthReq } from "../types/auth";
 import { AppError } from "../utils/AppError";
@@ -91,6 +92,33 @@ export const getUserEscrows = async (
     res.status(200).json({
       message: "Success",
       escrows,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const fundEscrowByPayer = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  if (!id || !userId) {
+    next(new AppError(401, "Missing Required Fields"));
+    return;
+  }
+
+  try {
+    const escrow = await fundEscrow(id, userId);
+    console.log("controller: ", escrow);
+
+    res.status(200).json({
+      message: "Updated Escrow",
+      escrow,
     });
     return;
   } catch (error) {
