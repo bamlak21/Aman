@@ -13,6 +13,7 @@ export type User = {
 export type LoginResponse = {
   success: string;
   user: User;
+  token: string;
 };
 
 export type RegUser = {
@@ -20,4 +21,10 @@ export type RegUser = {
   email: string;
   password: string;
   role: string;
+};
+
+export type AuthStore = {
+  user: User | null;
+  login: (user: User) => void;
+  logout: () => void;
 };
