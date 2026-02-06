@@ -7,13 +7,16 @@ type CardProps = {
     Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
   >;
   text: string;
+  accent: string;
 };
-const Cards = ({ title, value, icon, text }: CardProps) => {
+const Cards = ({ title, value, icon, text, accent }: CardProps) => {
   const Icon = icon as React.ForwardRefExoticComponent<
     Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
   >;
   return (
-    <div className="p-5 border border-gray-300 rounded-2xl flex flex-col gap-6 w-75">
+    <div
+      className={`p-5 border border-gray-300 rounded-2xl flex flex-col gap-6 w-75 hover:bg-[${accent}] duration-200`}
+    >
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-xl">{title}</h4>
         <Icon className="text-gray-500" />
