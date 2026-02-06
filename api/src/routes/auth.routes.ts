@@ -133,7 +133,7 @@ router.post("/login", login);
 
 /**
  * @swagger
- * /api/auth/refresh:
+ * /api/auth/token/refresh:
  *   post:
  *     summary: Refresh access token using refresh token
  *     tags: [Auth]
