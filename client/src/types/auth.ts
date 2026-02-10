@@ -13,7 +13,13 @@ export type User = {
 export type LoginResponse = {
   success: string;
   user: User;
-  token: string;
+  accessToken: string;
+};
+
+export type RegResponse = {
+  success: string;
+  user: User;
+  accessToken: string;
 };
 
 export type RegUser = {
@@ -25,6 +31,7 @@ export type RegUser = {
 
 export type AuthStore = {
   user: User | null;
-  login: (user: User) => void;
+  token: string | null;
+  login: (user: User, token: string) => void;
   logout: () => void;
 };
