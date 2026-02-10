@@ -4,7 +4,7 @@ import { config } from "../config";
 import { AppError } from "./AppError";
 
 export const generateToken = (payload: JwtPayload) => {
-  return jwt.sign(payload, config.secret, { expiresIn: "15m" });
+  return jwt.sign(payload, config.secret, { expiresIn: "2m" });
 };
 
 export const generateRefreshToken = (payload: JwtPayload) => {
