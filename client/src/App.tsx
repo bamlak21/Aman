@@ -8,6 +8,7 @@ import Transactions from "./pages/Transactions";
 import CreateEscrow from "./pages/CreateEscrow";
 import FundEscrow from "./pages/FundEscrow";
 import ReleaseFunds from "./pages/ReleaseFunds";
+import Protected from "./utils/Protected";
 
 function App() {
   return (
@@ -15,12 +16,14 @@ function App() {
       <Routes>
         <Route path="/sign-in" element={<Login />} />
         <Route path="/sign-up" element={<Register />} />
-        <Route element={<Layout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/create-escrow" element={<CreateEscrow />} />
-          <Route path="/fund-escrow" element={<FundEscrow />} />
-          <Route path="/release-funds" element={<ReleaseFunds />} />
+        <Route element={<Protected />}>
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/create-escrow" element={<CreateEscrow />} />
+            <Route path="/fund-escrow" element={<FundEscrow />} />
+            <Route path="/release-funds" element={<ReleaseFunds />} />
+          </Route>
         </Route>
       </Routes>
     </>

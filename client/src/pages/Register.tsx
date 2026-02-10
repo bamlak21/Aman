@@ -1,7 +1,8 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
 import type { RegUser } from "../types/auth";
-import { auth } from "../api/auth";
+import { auth } from "../api/auth.api";
+import { useAuthStore } from "../store/useAuthStore";
 
 const Register = () => {
   const {
@@ -14,8 +15,11 @@ const Register = () => {
     },
   });
 
-  const submit = (data: RegUser) => {
-    auth.register(data);
+  const { login } = useAuthStore();
+
+  const submit = async (data: RegUser) => {
+    const res = await auth.register(data);
+    login(res.user, res.accessToken);
   };
 
   return (

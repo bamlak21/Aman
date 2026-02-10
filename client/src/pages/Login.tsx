@@ -1,8 +1,9 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
 import type { UserLogin } from "../types/auth";
-import { auth } from "../api/auth";
+import { auth } from "../api/auth.api";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,11 +12,11 @@ const Login = () => {
     handleSubmit,
     formState: { errors },
   } = useForm<UserLogin>();
+  const { login } = useAuthStore();
 
   const submit = async (data: UserLogin) => {
     const d = await auth.login(data);
-
-    localStorage.setItem("token", d.token);
+    login(d.user, d.accessToken);
     navigate("/dashboard");
   };
 
