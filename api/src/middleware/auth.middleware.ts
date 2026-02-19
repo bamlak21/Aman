@@ -7,7 +7,7 @@ export const protect = (req: AuthReq, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(new AppError(401, "Token not Provided"));
+    return next(new AppError(403, "Token not Provided"));
   }
 
   const token = authHeader.split(" ")[1];
@@ -17,6 +17,6 @@ export const protect = (req: AuthReq, _res: Response, next: NextFunction) => {
     req.user = payload;
     next();
   } catch (error) {
-    return next(new AppError(401, "Invalid Token"));
+    return next(new AppError(401, "Invalid or malformed Token"));
   }
 };
