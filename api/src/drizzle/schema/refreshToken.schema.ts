@@ -9,7 +9,7 @@ import { users } from "./user.schema";
 
 export const refreshTokens = pgTable("refresh_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("id")
+  userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   token: varchar("token", { length: 512 }).notNull(),
