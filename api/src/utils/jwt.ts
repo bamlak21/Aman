@@ -4,7 +4,7 @@ import { config } from "../config";
 import { AppError } from "./AppError";
 
 export const generateToken = (payload: JwtPayload) => {
-  return jwt.sign(payload, config.secret, { expiresIn: "2m" });
+  return jwt.sign(payload, config.secret, { expiresIn: "30m" });
 };
 
 export const generateRefreshToken = (payload: JwtPayload) => {
@@ -16,7 +16,7 @@ export const verifyToken = (token: string) => {
     return jwt.verify(token, config.secret) as JwtPayload;
   } catch (error) {
     console.error("Invalid Token: ", error);
-    throw new AppError(409, "InValid Token");
+    throw new AppError(401, "InValid Token");
   }
 };
 
@@ -25,6 +25,6 @@ export const verifyRefreshToken = (token: string) => {
     return jwt.verify(token, config.secret) as JwtPayload;
   } catch (error) {
     console.error("Invalid Token: ", error);
-    throw new AppError(409, "InValid Token");
+    throw new AppError(401, "InValid Token");
   }
 };
