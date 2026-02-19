@@ -17,6 +17,12 @@ export const create = async (
   const { payeeId, amount, releaseCondition, expiresAt } = req.body;
 
   const amountCents = amount * 100;
+
+  if (payeeId === payerId) {
+    next(new AppError(400, "Cannot create escrow with yourself"));
+    return;
+  }
+
   try {
     if (!payerId) {
       next(new AppError(400, "Missing data"));
@@ -53,7 +59,6 @@ export const getEscrowById = async (
     return;
   }
   const userId = req.user?.id;
-  console.log(req.user);
 
   if (!userId) {
     next(new AppError(403, "An authorized access"));
