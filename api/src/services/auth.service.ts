@@ -69,9 +69,11 @@ export const saveRefreshToken = async (token: string, userId: string) => {
   }
   await db.insert(refreshTokens).values({
     userId: userId,
-    token,
+    token: token,
     expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
   });
+
+  console.log("Refresh token created for: ", userId);
 };
 
 export const renewToken = async (token: string, payload: JwtPayload) => {
@@ -87,9 +89,15 @@ export const renewToken = async (token: string, payload: JwtPayload) => {
     .update(refreshTokens)
     .set({ revoked: true })
     .where(eq(refreshTokens.id, storedToken.id));
-
-  const newRefreshToken = generateRefreshToken(payload);
-  const newAccessToken = generateToken(payload);
+  const getSignablePayload = (payload: JwtPayload) => {
+    return {
+      id: payload.id,
+      email: payload.email,
+      role: payload.role,
+    };
+  };
+  const newRefreshToken = generateRefreshToken(getSignablePayload(payload));
+  const newAccessToken = generateToken(getSignablePayload(payload));
 
   await db.insert(refreshTokens).values({
     userId: payload.id,
