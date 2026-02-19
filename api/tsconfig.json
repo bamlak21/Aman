@@ -5,6 +5,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,
+    "types": ["vitest/globals", "node"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
@@ -12,11 +13,6 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
