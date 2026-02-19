@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../config/db";
-import { escrow, escrowParties, transactions } from "../drizzle/schema";
+import { escrow, escrowParties, transactions, users } from "../drizzle/schema";
 import { AppError } from "../utils/AppError";
 
 type CreateEscrowInput = {
@@ -80,12 +80,46 @@ export const fetchEscrows = async (userId: string) => {
     .select({
       escrow: escrow,
       role: escrowParties.role,
+      user: {
+        id: users.id,
+        name: users.name,
+      },
     })
     .from(escrowParties)
     .innerJoin(escrow, eq(escrow.id, escrowParties.escrowId))
+    .innerJoin(users, eq(users.id, escrowParties.userId))
     .where(eq(escrowParties.userId, userId));
 
-  return rows.map((row) => ({ ...row.escrow, myRole: row.role }));
+  const grouped = new Map();
+
+  for (const row of rows) {
+    const escrowId = row.escrow.id;
+
+    if (!grouped.has(escrowId)) {
+      grouped.set(escrowId, {
+        ...row.escrow,
+        payer: null,
+        payee: null,
+        myRole: null,
+      });
+    }
+
+    const entry = grouped.get(escrowId);
+
+    if (row.role === "payer") {
+      entry.payer = row.user;
+    }
+
+    if (row.role === "payee") {
+      entry.payee = row.user;
+    }
+
+    if (row.user.id === userId) {
+      entry.myRole = row.role;
+    }
+  }
+
+  return Array.from(grouped.values());
 };
 
 export const fundEscrow = async (escrowId: string, userId: string) => {
