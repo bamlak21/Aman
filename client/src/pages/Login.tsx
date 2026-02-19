@@ -4,20 +4,44 @@ import type { UserLogin } from "../types/auth";
 import { auth } from "../api/auth.api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
+import { useState } from "react";
+import { Bug } from "lucide-react";
+import axios from "axios";
+import { loginSchema, type LoginSchema } from "../validation/auth.schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+interface ResError {
+  error: string;
+  message: string;
+}
 
 const Login = () => {
+  const [error, setError] = useState<string | null>(null);
+
   const navigate = useNavigate();
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<UserLogin>();
+  } = useForm<LoginSchema>({
+    resolver: zodResolver(loginSchema),
+  });
   const { login } = useAuthStore();
 
   const submit = async (data: UserLogin) => {
-    const d = await auth.login(data);
-    login(d.user, d.accessToken);
-    navigate("/dashboard");
+    try {
+      setError(null);
+      const d = await auth.login(data);
+
+      login(d.user, d.accessToken);
+      navigate("/dashboard");
+    } catch (error: unknown) {
+      if (axios.isAxiosError<ResError>(error)) {
+        setError(error?.response?.data?.message ?? "Login failed");
+      } else {
+        setError("Something went Wrong");
+      }
+    }
   };
 
   return (
@@ -28,6 +52,11 @@ const Login = () => {
       <div className="flex-1 h-full w-full flex flex-col items-center justify-center">
         <div className="gap-5">
           {/* Heading */}
+          {error && (
+            <p className="text-white bg-red-500 rounded p-1 flex justify-center items-center gap-5 mb-4">
+              <Bug /> {error}
+            </p>
+          )}
           <div className="flex flex-col items-center justify-center gap-2">
             <h2 className="text-5xl font-semibold">Welcome Back</h2>
             <p className="text-md text-gray-600">

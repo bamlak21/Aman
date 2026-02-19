@@ -3,13 +3,16 @@ import { useForm } from "react-hook-form";
 import type { RegUser } from "../types/auth";
 import { auth } from "../api/auth.api";
 import { useAuthStore } from "../store/useAuthStore";
+import { registerSchema, type RegisterSchema } from "../validation/auth.schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 const Register = () => {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegUser>({
+  } = useForm<RegisterSchema>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       role: "client",
     },
@@ -79,7 +82,9 @@ const Register = () => {
                 placeholder="Enter your password"
                 {...register("password", { required: "Password is Required" })}
               />
-              {errors.password && <p>{errors.password.message}</p>}
+              {errors.password && (
+                <p className="text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             <fieldset className="mt-3 flex gap-3 items-center justify-start">
