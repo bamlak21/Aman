@@ -53,9 +53,9 @@ export const register = async (
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/auth/token",
+      secure: false,
+      sameSite: "lax",
+      path: "/",
       maxAge: 15 * 24 * 60 * 60 * 1000,
     });
 
@@ -95,9 +95,9 @@ export const login = async (
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/auth/token",
+      secure: false,
+      sameSite: "lax",
+      path: "/",
       maxAge: 15 * 24 * 60 * 60 * 1000,
     });
 
@@ -114,7 +114,7 @@ export const refreshToken = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const token = req.cookies.refresh_token;
+  const token = req.cookies?.refresh_token;
   if (!token) {
     next(new AppError(403, "Token missing"));
     return;
@@ -127,9 +127,9 @@ export const refreshToken = async (
 
     res.cookie("refresh_token", tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/auth/token",
+      secure: false,
+      sameSite: "lax",
+      path: "/",
       maxAge: 15 * 24 * 60 * 60 * 1000,
     });
 
