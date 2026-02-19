@@ -1,5 +1,29 @@
-import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios"; // AxiosError, type AxiosRequestConfig
 import { useAuthStore } from "../store/useAuthStore";
+
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface FailedQueue {
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}
+
+let isRefreshing = false;
+let failedQueue: FailedQueue[] = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+
+  failedQueue = [];
+};
 
 const apiUrl =
   import.meta.env.VITE_BASE_API_URL ||
@@ -23,34 +47,46 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & {
-      _retry?: boolean;
-    };
+    const originalRequest = error.config as CustomAxiosRequestConfig;
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      console.log("Failed token, refreshing...");
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const res = await axios.post(
+          `${apiUrl}/auth/token/refresh`,
+          {},
+          { withCredentials: true },
+        );
+        const { accessToken } = res.data;
+        console.log("Refreshed token", accessToken);
+
+        useAuthStore.setState({ token: accessToken });
+        processQueue(null, accessToken);
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (error) {
+        processQueue(error, null);
+        useAuthStore.setState({ token: null });
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
+      }
     }
-
-    if (originalRequest.url?.includes("/auth/token/refresh")) {
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
-    try {
-      const res = await api.post("/auth/token/refresh");
-      const newToken = res.data.accessToken;
-      useAuthStore.setState({ token: newToken });
-
-      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-      originalRequest.headers = originalRequest.headers ?? {};
-      originalRequest.headers.Authorization = `Bearer ${newToken}`;
-      return api(originalRequest);
-    } catch (error) {
-      console.log("Refresh Failed", error);
-      useAuthStore.setState({ token: null });
-      window.location.href = "/sign-in";
-
-      return Promise.reject(error);
-    }
+    return Promise.reject(error);
   },
 );
