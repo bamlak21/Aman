@@ -5,7 +5,6 @@ import {
   refreshToken,
   register,
 } from "../controllers/auth.controller";
-import { protect } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -157,7 +156,7 @@ router.post("/login", login);
  *       500:
  *         description: Some server error
  */
-router.post("/token/refresh", protect, refreshToken);
+router.post("/token/refresh", refreshToken);
 
 /**
  * @swagger
@@ -177,6 +176,6 @@ router.post("/token/refresh", protect, refreshToken);
  *       500:
  *         description: Some server error
  */
-router.post("/token/logout", protect, logout);
+router.post("/token/logout", logout);
 
 export default router;
