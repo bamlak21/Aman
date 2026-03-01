@@ -14,6 +14,7 @@ export type LoginResponse = {
   success: string;
   user: User;
   accessToken: string;
+  message?: string;
 };
 
 export type RegResponse = {

@@ -64,12 +64,12 @@ const Transactions = () => {
                 <h2 className="flex gap-1 items-center text-sm">
                   <User />
                   <strong>Payer:</strong>
-                  John Business
+                  {esc.payer.name}
                 </h2>
                 <h2 className="flex gap-1 items-center text-sm">
                   <User />
                   <strong>Payee:</strong>
-                  Jane McAliter
+                  {esc.payee?.name ?? "N/A"}
                 </h2>
               </div>
 

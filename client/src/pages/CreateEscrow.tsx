@@ -1,5 +1,7 @@
 import { DollarSign, FileText, User } from "lucide-react";
 import Heading from "../components/Heading";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const h = {
   heading: "Create New Escrow",
@@ -7,6 +9,8 @@ const h = {
 };
 
 const CreateEscrow = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   return (
     <>
       <Heading heading={h.heading} subheading={h.subheading} />
@@ -31,8 +35,10 @@ const CreateEscrow = () => {
               placeholder="recipient@example.com"
             />
             <p className="text-sm text-gray-700">
-              The person who will receive the funds when conditions are met
+              The person who will receive the funds when conditions are met.
             </p>
+
+            {loading}
           </div>
           <div className="mt-5 flex flex-col gap-1">
             <label className="flex gap-2 items-center text-sm">
@@ -69,7 +75,13 @@ const CreateEscrow = () => {
             <button className="bg-black text-white p-2 rounded-xl w-1/1 font-medium">
               Create Escrow
             </button>
-            <button className="border border-gray-300 p-2 rounded-xl w-1/3 font-medium">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/fund-escrow");
+              }}
+              className="border border-gray-300 p-2 rounded-xl w-1/3 font-medium"
+            >
               Fund Next
             </button>
           </div>

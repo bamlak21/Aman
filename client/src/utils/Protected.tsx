@@ -11,7 +11,7 @@ const Protected = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const data = await user.me(token ?? "");
+        const data = await user.me();
         login(data, token ?? "");
       } catch (error) {
         console.log(error);
