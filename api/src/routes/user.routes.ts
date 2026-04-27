@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { protect } from "../middleware/auth.middleware";
-import { searchUserByEmail } from "../controllers/user.controller";
+import { searchUserByEmail, getUserByEmail } from "../controllers/user.controller";
 
 const router = Router();
 
@@ -40,5 +40,6 @@ const router = Router();
  */
 
 router.get("/search", protect, searchUserByEmail);
+router.post("/by-email", protect, getUserByEmail);
 
 export default router;

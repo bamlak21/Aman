@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, uuid, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, uuid, timestamp, bigint, text } from "drizzle-orm/pg-core";
 
 export const escrowStatus = pgEnum("escrow_status", [
   "created",
@@ -23,4 +23,9 @@ export const escrow = pgTable("escrow", {
   expiresAt: timestamp("expires_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  milestoneDetails: text("milestone_details"),
+  txRef: text("tx_ref"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", {withTimezone:true}).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", {withTimezone:true}).defaultNow().notNull(),
 });

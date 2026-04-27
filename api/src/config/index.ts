@@ -18,4 +18,17 @@ export const config = {
     (() => {
       throw new Error("Secret is missing");
     })(),
+  customCallbackUrl:
+    process.env.customCallbackUrl ||
+    (() => {
+      throw new Error("customCallbackUrl is missing");
+    })(),
+  chapaSecretKey:
+    process.env.CHAPA_SECRET_KEY ||
+    (() => {
+      throw new Error("CHAPA_SECRET_KEY is missing");
+    })(),
+  frontendUrl:
+    process.env.FRONTEND_URL ||
+    "http://localhost:5173",
 };

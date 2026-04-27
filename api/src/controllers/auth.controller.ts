@@ -78,10 +78,13 @@ export const login = async (
     next(new AppError(401, "Missing Required Fields"));
     return;
   }
-
+  
   try {
     const user = await authenticateUser(email, password);
-
+  if(!user) {
+    next(new AppError(401, "Invalid Credentials"));
+    return;
+  }
     const payload: JwtPayload = {
       id: user.id,
       email: user.email,
@@ -101,7 +104,7 @@ export const login = async (
       maxAge: 15 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: "success", user, accessToken });
+    res.status(200).json({ message: "Login successful", user, accessToken });
     return;
   } catch (error) {
     console.error(error);
