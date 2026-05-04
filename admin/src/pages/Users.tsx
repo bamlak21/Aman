@@ -23,7 +23,6 @@ const UsersPage = () => {
       // TODO: Replace with actual API call
       const Users:UserData[]= await admin.users()
       setUsers(Users||[]);
-      console.log(Users);
       
     } catch (error) {
       console.error("Failed to load users:", error);
