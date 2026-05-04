@@ -5,6 +5,7 @@ import { swaggerSpec } from "./config/swagger";
 import authRoutes from "./routes/auth.routes";
 import escrowRoutes from "./routes/escrow.route";
 import userRoutes from "./routes/user.routes";
+import adminRoutes from "./routes/admin.routes";
 import { errorHandler } from "./middleware/error.middleware";
 import cookieParser from "cookie-parser";
 
@@ -34,6 +35,7 @@ app.get("/", async (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/escrow", escrowRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Error handler middleware
 app.use(errorHandler);

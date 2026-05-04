@@ -4,3 +4,5 @@ export * from "./parties.schema";
 export * from "./transactions.schema";
 export * from "./refreshToken.schema";
 export * from "./fund.schema";
+export * from "./dispute.schema";
+export * from "./admin.schema";

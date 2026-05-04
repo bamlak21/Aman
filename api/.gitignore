@@ -3,6 +3,8 @@ node_modules/
 
 dist/
 
-
+# Uploads (any subdirectory)
+**/uploads/
+uploads/
 .env
 dockerfile
