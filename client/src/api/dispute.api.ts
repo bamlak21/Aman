@@ -24,7 +24,7 @@ export type DisputeData = {
 
 export const dispute = {
   createDispute: async (data: DisputeInput): Promise<DisputeData> => {
-    const res = await api.post("api/dispute/create", data);
+    const res = await api.post("/api/dispute/create", data);
     return res.data;
   },
 };

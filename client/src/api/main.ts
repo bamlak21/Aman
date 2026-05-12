@@ -49,7 +49,7 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as CustomAxiosRequestConfig;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 404 && !originalRequest._retry) {
       console.log("Failed token, refreshing...");
 
       if (isRefreshing) {

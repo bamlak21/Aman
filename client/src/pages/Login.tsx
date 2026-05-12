@@ -1,6 +1,6 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
-import type { UserLogin } from "../types/auth";
+import type { LoginResponse, UserLogin } from "../types/auth";
 import { auth } from "../api/auth.api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
@@ -9,7 +9,7 @@ import { Bug } from "lucide-react";
 import axios from "axios";
 import { loginSchema, type LoginSchema } from "../validation/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-
+import toast from "react-hot-toast";
 interface ResError {
   error: string;
   message: string;
@@ -32,13 +32,15 @@ const Login = () => {
     try {
       setError(null);
       const d = await auth.login(data);
-
+      toast.success(d?.message)
       login(d.user, d.accessToken);
       navigate("/dashboard");
     } catch (error: unknown) {
-      if (axios.isAxiosError<ResError>(error)) {
+      if (axios.isAxiosError<LoginResponse>(error)) {
+        toast.error(error?.response?.data?.message ||"Login failed")
         setError(error?.response?.data?.message ?? "Login failed");
       } else {
+        
         setError("Something went Wrong");
       }
     }
@@ -121,9 +123,12 @@ const Login = () => {
         </div>
         <p className="fixed bottom-10 ">
           Don't have an account?{" "}
-          <a href="/sign-up" className="text-[hsl(var(--accent))]">
+          <button
+            onClick={() => navigate("/sign-up")}
+            className="text-[hsl(var(--accent))] bg-transparent border-none cursor-pointer"
+          >
             Sign up
-          </a>{" "}
+          </button>{" "}
         </p>
       </div>
     </div>

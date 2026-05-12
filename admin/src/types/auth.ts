@@ -21,3 +21,9 @@ export type AuthStore= {
   login: (user:Admin,token:string|null)=> void
   logout:()=> void
 }
+export type userRegData={
+  name:string,
+  role:string,
+  email:string,
+  password:string
+}

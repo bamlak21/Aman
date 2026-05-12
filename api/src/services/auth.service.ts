@@ -1,42 +1,59 @@
 import { eq } from "drizzle-orm";
 import { db } from "../config/db";
-import { users } from "../drizzle/schema";
+import {  admins, users } from "../drizzle/schema";
 import bcrypt from "bcrypt";
-import { User, UserRole } from "../types/user";
+import { User } from "../types/user";
 import { AppError } from "../utils/AppError";
 import { refreshTokens } from "../drizzle/schema/refreshToken.schema";
 import { JwtPayload } from "../types/auth";
 import { generateRefreshToken, generateToken } from "../utils/jwt";
+import { Admin } from "../types/admin";
 
 export const createUser = async (
   name: string,
   email: string,
   password: string,
-  role: UserRole,
-): Promise<User> => {
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
+  role: string,
+): Promise<User|Admin> => {
+ 
+const roleTyped = role as "admin" | "super admin" | "payee" | "payer";
+
+const adminRoles = ['admin'];
+const isAdmin = adminRoles.includes(role);
+
+
+const targetTable = isAdmin ? admins : users;
+
+
+const [existingUser] = await db
+  .select()
+  .from(targetTable)
+  .where(eq(targetTable.email, email))
+  .limit(1);
+
+if (existingUser) {
+  throw new AppError(409, "User already exists");
+}
+
+const hashedPassword = await bcrypt.hash(password, 10);
+
+
+const [newUser] = await db
+  .insert(targetTable)
+  .values({
+    name,
+    email,
+    role: roleTyped,
+    password: hashedPassword,
+  })
+  .returning({
+    id: targetTable.id,
+    name: targetTable.name,
+    email: targetTable.email,
+    role: targetTable.role,
   });
+return newUser;
 
-  if (user) throw new AppError(409, "User already exists");
-
-  const hashed = await bcrypt.hash(password, 10);
-  const [newUser] = await db
-    .insert(users)
-    .values({
-      name,
-      email,
-      password: hashed,
-      role,
-    })
-    .returning({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-    });
-
-  return newUser;
 };
 
 export const authenticateUser = async (
@@ -46,6 +63,10 @@ export const authenticateUser = async (
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
   });
+
+  if(!user?.isActive){
+    throw new AppError(403,"Your account has been suspended")
+  }
 
   if (!user) {
     throw new AppError(401, "User doesn't exist");
@@ -119,4 +140,16 @@ export const revokeToken = async (token: string) => {
     .returning();
 
   return t;
+};
+
+export const saveUserRefreshToken = async (token: string, userId: string) => {
+  if (!token || !userId) {
+    throw new AppError(400, "Missing Required fields");
+  }
+  await db.insert(refreshTokens).values({
+    userId: userId,
+    token: token,
+    expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+  });
+  console.log("Refresh token created for: ", userId);
 };

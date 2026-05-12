@@ -158,7 +158,7 @@ export const initializeEscrowFunding = async (escrowId: string, userId: string) 
   const { initializePayment } = await import("../utils/chapa");
   const paymentResult = await initializePayment({
     tx_ref,
-    amount: escrowData.amount / 1000,
+    amount: escrowData.amount / 100,
     escrow_id: escrowId,
   });
 

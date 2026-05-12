@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { Users, Search, MoreVertical, UserPlus, RefreshCw } from "lucide-react";
 import { admin } from "../api/admin.api";
+import UserRegModal from "../components/UserRegModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../components/ConfirmModal";
+import axios from "axios";
 
 type UserData = {
   id: string;
@@ -10,13 +14,16 @@ type UserData = {
   createdAt: string;
   status: string;
 };
-
+type message ={
+  message:string;
+}
 const UsersPage = () => {
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
-
+  const [selectedUser, setSelectedUser] = useState<any>();
+  const [openModal,setOpenModal]=useState(false);
+  const [openRevModal,setOpenRevModal]=useState(false)
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -49,6 +56,24 @@ const UsersPage = () => {
     });
   };
 
+  const revoke = async(userId:string,isActive:boolean) =>{
+    
+    try
+    {
+      const data = await admin.suspendUser(userId,isActive) 
+      // toast.success("Suspend Successfully");
+      return data
+    }
+    catch(error){
+      if(axios.isAxiosError<message>(error)){
+      toast.error(error.response?.data.message??"Suspention failed");
+      }
+      else{
+        console.error("something wrong")
+      }
+    }
+  } 
+  
   if (loading) {
     return (
       <div className="flex flex-col p-6 w-full min-h-full">
@@ -66,7 +91,9 @@ const UsersPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-500 mt-1">Manage and monitor all registered users</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition">
+        <button className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition"
+        onClick={()=>setOpenModal(true)}
+        >
           <UserPlus size={16} />
           Add User
         </button>
@@ -183,7 +210,11 @@ const UsersPage = () => {
                           <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition">
                             Edit User
                           </button>
-                          <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition">
+                          <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
+                          onClick={()=>{
+                          setOpenRevModal(true)
+                          setSelectedUser(user.id)
+                          }}>
                             Suspend User
                           </button>
                         </div>
@@ -196,6 +227,20 @@ const UsersPage = () => {
           </table>
         </div>
       </div>
+      <UserRegModal
+      isOpen={openModal}
+      onClose={()=>setOpenModal(false)}
+      />
+      <ConfirmModal
+      isOpen={openRevModal}
+      title="Suspend User"
+      message="Are you sure to suspend these user ?"
+      cancelText="Cancel"
+      confirmText="Ok"
+      onCancel={()=>setOpenRevModal(false)}
+      onConfirm={()=>{revoke(selectedUser,false)
+        setOpenRevModal(false)
+      }}/>
     </div>
   );
 };

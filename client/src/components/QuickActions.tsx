@@ -9,7 +9,7 @@ const QuickActions = () => {
 
   const navigate = useNavigate();
   return (
-    <div className="flex-1 p-5 border rounded-xl border-gray-300 w-1/2">
+    <div className="flex-1 p-5 border rounded-xl border-gray-300 min-w-70">
       <div className="flex flex-col">
         <h2 className="font-semibold text-lg">Quick Actions</h2>
         <h6 className="text-md font-light text-gray-400">
@@ -18,9 +18,10 @@ const QuickActions = () => {
       </div>
 
       <div className="mt-5 flex flex-col gap-1">
-        {btn.map((b) => {
+        {btn.map((b,id) => {
           return (
             <button
+             key={id}
               onClick={() => navigate(b.path)}
               className="p-4 bg-black text-white rounded-2xl flex justify-between hover:bg-gray-700 duration-200 cursor-pointer"
             >

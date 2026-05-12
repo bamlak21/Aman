@@ -1,6 +1,6 @@
 export type UserLogin = {
   email: string;
-  password: string;
+  password: string
 };
 
 export type User = {
@@ -8,13 +8,14 @@ export type User = {
   name: string;
   email: string;
   role: string;
+  isActive:boolean
 };
 
 export type LoginResponse = {
   success: string;
   user: User;
   accessToken: string;
-  message?: string;
+  message: string;
 };
 
 export type RegResponse = {

@@ -3,6 +3,8 @@ import { Toaster } from "react-hot-toast";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
+import DisputesPage from "./pages/Disputes";
+import TransactionsPage from "./pages/Transactions";
 import Protected from "./utils/Protected";
 import AdminLayout from "./components/AdminLayout";
 
@@ -15,8 +17,8 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/users" element={<UsersPage />} />
-            <Route path="/transactions" element={<div className="p-6">Transactions Page</div>} />
-            <Route path="/disputes" element={<div className="p-6">Disputes Page</div>} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/disputes" element={<DisputesPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

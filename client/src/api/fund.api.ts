@@ -23,7 +23,7 @@ export type fundResponse = {
 
 export const fund = {
    createFund: async(data:createFund):Promise<fundResponse> =>{
-    const res = await api.patch(`api/escrow/${data.escrow_id}/fund`);
+    const res = await api.patch(`/api/escrow/${data.escrow_id}/fund`);
     return res.data;
    }
 }

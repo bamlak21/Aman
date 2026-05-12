@@ -3,17 +3,6 @@ import { AuthReq } from "../types/auth";
 import { AppError } from "../utils/AppError";
 import { createDispute } from "../services/dispute.service";
 
-type MulterFile = {
-  fieldname: string;
-  originalname: string;
-  encoding: string;
-  mimetype: string;
-  destination: string;
-  filename: string;
-  path: string;
-  size: number;
-};
-
 export const create = async (
   req: AuthReq,
   res: Response,
@@ -33,12 +22,12 @@ export const create = async (
       return;
     }
 
-    const files = req.files as MulterFile[] | undefined;
+    const files = (req as any).files as { filename: string }[] | undefined;
     const evidence_url = files
       ? files.map((f) => `/uploads/disputes/${f.filename}`)
       : [];
-    
-    
+
+
     const dispute = await createDispute({
       evidence_url,
       reason,

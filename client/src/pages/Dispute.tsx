@@ -42,11 +42,16 @@ const Dispute = () => {
   return (
     <>
       <Heading heading={h.heading} subheading={h.subheading} />
-      {txns.map((esc,id) => {
-        return (
-          <div className="mt-5 p-5 flex flex-col gap-10 border border-gray-300 rounded-xl"
-          key={id}
-          >
+      {txns.length === 0 ? (
+        <div className="flex justify-center items-center h-64">
+          <p className="text-gray-500">No escrows to display</p>
+        </div>
+      ) : (
+        txns.map((esc) => {
+          return (
+            <div className="mt-5 p-5 flex flex-col gap-10 border border-gray-300 rounded-xl"
+            key={esc.id}
+            >
             <div className="flex justify-between">
               <div className="flex flex-col">
                 <h2 className="font-semibold">
@@ -139,7 +144,8 @@ const Dispute = () => {
             </div>
           </div>
         );
-      })}
+        })
+      )}
     <ConfirmModal
      isOpen={openModal}
      title="Report user"
@@ -147,11 +153,12 @@ const Dispute = () => {
      confirmText="Report"
      cancelText="Cancel"
       onConfirm={()=>{
-       if (selectedId) 
-       setOpenModal(false)
-       const escrow = txns.find(e => e.id === selectedId);
-       const reportedId = escrow?.payer?.id === user?.id ? escrow?.payee?.id : escrow?.payer?.id;
-       navigate(`/report?escrow_id=${selectedId}&reported_id=${reportedId}`)
+        if (selectedId) {
+          setOpenModal(false);
+          const esc = txns.find(e => e.id === selectedId);
+          const reportedId = esc?.payer?.id === user?.id ? esc?.payee?.id : esc?.payer?.id;
+          navigate(`/report?escrow_id=${selectedId}&reported_id=${reportedId}`);
+        }
       }}
      onCancel={()=> setOpenModal(false)}
     />

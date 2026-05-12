@@ -5,6 +5,11 @@ import {
   saveRefreshToken,
   getAdminById,
   getAllUsers,
+  fetchAllDispute,
+  resolveDisputeService,
+  updateDisputeStatusService,
+  fetchAllTransactionsService,
+  revokeUserAccess,
 } from "../services/admin.service";
 import { AppError } from "../utils/AppError";
 import {
@@ -15,6 +20,9 @@ import {
 import { JwtPayload } from "../types/auth";
 import { authenticateAdmin } from "../services/admin.service";
 import { AuthReq } from "../types/auth";
+import { createUser, saveUserRefreshToken } from "../services/auth.service";
+import { UserRole } from "../types/user";
+import { AdminRole } from "../types/admin";
 
 
 
@@ -151,4 +159,183 @@ catch(error){
  next(error);
  return;
 }
+}
+
+export const addNewUser=async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction
+)=>{
+
+  if(!req.user?.id && req.user?.role!=='super admin'){
+    next(new AppError(403,'Unauthorized'))
+    return;
+  }
+
+  const {name,email,role,password}=req.body;
+  if(!name||!email||!role||!password){
+   next(new AppError(409,'Missing Field'))
+   return;
+  }
+  try{
+ let mappedRole: UserRole | AdminRole;
+
+      if (role === "client") {
+        mappedRole = "payer";
+      } else if (role === "freelancer") {
+        mappedRole = "payee";
+      } else if (role === "admin") {
+        mappedRole = "admin";
+      }
+      else {
+        next(new AppError(400, "Error"));
+        return;
+      }
+
+  const newUser= await createUser(name,email,password,mappedRole);
+  const payload:JwtPayload ={
+    id:newUser.id,
+    email:newUser.email,
+    role:newUser.role
+  }
+  
+  const accessToken = await generateToken(payload);
+  const refreshToken= await generateRefreshToken(payload);
+  
+  const adminRoles = ["admin", "super admin"];
+if (adminRoles.includes(role)) {
+  await saveRefreshToken(refreshToken, newUser.id);
+} else {
+  await saveUserRefreshToken(refreshToken, newUser.id);
+}
+  
+      res.cookie("refresh_token", refreshToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 15 * 24 * 60 * 60 * 1000,
+      });
+  
+  res.status(201).json({
+    message:"success",newUser,accessToken
+  })
+  return;
+}
+catch(error){
+  console.error(error);
+  next(error);
+}
+}
+
+export const fetchDisputeReports =async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction  
+)=>{
+
+if(!req.user?.id){
+  next(new AppError(403,'Unauthorized'))
+  return
+}
+
+const fetchDispute= await fetchAllDispute();
+res.status(200).json(fetchDispute)
+}
+
+export const resolveDispute = async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction  
+)=>{
+  if(!req.user?.id){
+    next(new AppError(403,'Unauthorized'))
+    return
+  }
+
+  const { disputeId } = req.params;
+  const { resolution } = req.body;
+
+  if(!disputeId || !resolution){
+    next(new AppError(400,'Missing disputeId or resolution'))
+    return
+  }
+
+  try{
+    const result = await resolveDisputeService(disputeId, resolution);
+    res.status(200).json(result);
+  }
+  catch(error){
+    next(error);
+  }
+}
+
+export const updateDisputeStatus = async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction  
+)=>{
+  if(!req.user?.id){
+    next(new AppError(403,'Unauthorized'))
+    return
+  }
+
+  const { disputeId } = req.params;
+  const { status } = req.body;
+
+  if(!disputeId || !status){
+    next(new AppError(400,'Missing disputeId or status'))
+    return
+  }
+
+  try{
+    const result = await updateDisputeStatusService(disputeId, status);
+    res.status(200).json(result);
+  }
+  catch(error){
+    next(error);
+  }
+}
+
+export const fetchAllTransactions = async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction
+)=>{
+  if(!req.user?.id){
+    next(new AppError(403,'Unauthorized'))
+    return
+  }
+
+  try{
+    const data = await fetchAllTransactionsService();
+    res.status(200).json(data);
+  }
+  catch(error){
+    next(error);
+  }
+}
+
+export const suspendUser =async (
+  req:AuthReq,
+  res:Response,
+  next:NextFunction
+)=>{
+  const {userId}= req.params;
+  const {isActive}= req.body;
+
+  if(req.user?.role !=="super admin"){
+    next(new AppError(401,"Unauthorized"))
+    return;
+  }
+  try{
+
+  const user= await revokeUserAccess(userId,isActive);
+  res.status(201).json({message:"Suspend Successfully",user})
+  }
+   catch(error){
+   next(error)
+   }
+ 
+
 }

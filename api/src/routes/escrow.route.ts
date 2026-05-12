@@ -196,6 +196,12 @@ router.post("/create", protect, create);
  *                   type: number
  *                   example: 500
  */
+router.get("/", protect, getUserEscrows);
+
+router.get("/verify-payment", verifyEscrowPayment);
+
+router.post("/webhook", webhookHandler);
+
 router.get("/:escrowId", protect, getEscrowById);
 
 /**
@@ -348,9 +354,5 @@ router.get("/", protect, getUserEscrows);
  *                   example: 500
  */
 router.patch("/:id/fund", protect, fundEscrowByPayer);
-
-router.get("/verify-payment", verifyEscrowPayment);
-
-router.post("/webhook", webhookHandler);
 
 export default router;

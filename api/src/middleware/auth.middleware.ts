@@ -9,7 +9,7 @@ export const protect = (req: AuthReq, _res: Response, next: NextFunction) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return next(new AppError(403, "Token not Provided"));
   }
-
+  
   const token = authHeader.split(" ")[1];
 
   try {

@@ -70,7 +70,7 @@ const Report = () => {
         formData.append("evidence", file);
       });
 
-      await api.post("api/disputes/create", formData, {
+      await api.post("/api/dispute/create", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

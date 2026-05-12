@@ -5,8 +5,13 @@ import { auth } from "../api/auth.api";
 import { useAuthStore } from "../store/useAuthStore";
 import { registerSchema, type RegisterSchema } from "../validation/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const Register = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -21,8 +26,17 @@ const Register = () => {
   const { login } = useAuthStore();
 
   const submit = async (data: RegUser) => {
-    const res = await auth.register(data);
-    login(res.user, res.accessToken);
+    try {
+      setLoading(true);
+      const res = await auth.register(data);
+      toast.success(res.success);
+      login(res.user, res.accessToken);
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -115,16 +129,22 @@ const Register = () => {
               {errors.role && <p>{errors.role.message}</p>}
             </fieldset>
 
-            <button className="text-md font-semibold mt-3 rounded-lg w-full bg-[hsl(var(--accent))] py-2 text-white">
-              Submit
+            <button
+              disabled={loading}
+              className="text-md font-semibold mt-3 rounded-lg w-full bg-[hsl(var(--accent))] py-2 text-white disabled:opacity-50"
+            >
+              {loading ? "Creating Account..." : "Submit"}
             </button>
           </form>
         </div>
         <p className="fixed bottom-10 ">
           Already have an account?{" "}
-          <a href="/sign-in" className="text-[hsl(var(--accent))]">
+          <button
+            onClick={() => navigate("/sign-in")}
+            className="text-[hsl(var(--accent))] bg-transparent border-none cursor-pointer"
+          >
             Sign in
-          </a>{" "}
+          </button>{" "}
         </p>
       </div>
     </div>

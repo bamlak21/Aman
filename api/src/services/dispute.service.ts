@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "../config/db";
-import { dispute } from "../drizzle/schema";
+import { dispute, escrow } from "../drizzle/schema";
 import { AppError } from "../utils/AppError";
 
 type disputeData ={
@@ -31,23 +31,26 @@ export const createDispute = async(input:disputeData) =>{
   )
  )
 
- if(existingDispute.length>1){
-  throw new AppError(400,"An active dispute already exists for this escrow")
- }
+  if(existingDispute.length>0){
+   throw new AppError(400,"An active dispute already exists for this escrow")
+  }
 
- return await db.transaction(async(tx)=>{
-   const [createDispute] = await tx
-         .insert(dispute)
-         .values({
-           escrow_id,
-           reported_id,
-           reporter_id,
-           reason,
-           dispute_type,
-           evidence_url
-         })
-         .returning();
- return createDispute;
-})
+  return await db.transaction(async(tx)=>{
+    const [newDispute] = await tx
+          .insert(dispute)
+          .values({
+            escrow_id,
+            reported_id,
+            reporter_id,
+            reason,
+            dispute_type,
+            evidence_url
+          })
+          .returning();
+
+    await tx.update(escrow).set({ status: "disputed" }).where(eq(escrow.id, escrow_id));
+
+    return newDispute;
+  })
 
 }
