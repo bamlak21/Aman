@@ -8,6 +8,13 @@
       "when": 1767961093330,
       "tag": "0000_flowery_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778598165695,
+      "tag": "0001_flimsy_nitro",
+      "breakpoints": true
     }
   ]
 }

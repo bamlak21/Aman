@@ -21,8 +21,7 @@ export const escrow = pgTable("escrow", {
   status: escrowStatus("status").default("created").notNull(),
   releaseCondition: conditions("release_conditions").default("manual"),
   expiresAt: timestamp("expires_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
+    .defaultNow(),
   milestoneDetails: text("milestone_details"),
   txRef: text("tx_ref"),
   paidAt: timestamp("paid_at", { withTimezone: true }),

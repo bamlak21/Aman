@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/useAuthStore";
+import toast from "react-hot-toast";
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
@@ -55,6 +56,7 @@ api.interceptors.response.use(
         originalRequest.url?.includes("/register");
 
       if (isAuthRequest) {
+        toast.error("Session Expired")
         return Promise.reject(error);
       }
 

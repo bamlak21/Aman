@@ -31,4 +31,7 @@ export const config = {
   frontendUrl:
     process.env.FRONTEND_URL ||
     "http://localhost:5173",
+  localAiUrl:
+    process.env.LOCAL_AI_URL ||
+    "http://localhost:11434/api/generate",
 };

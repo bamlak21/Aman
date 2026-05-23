@@ -25,7 +25,7 @@ const Layout = () => {
         <Sidebar />
         <button
           onClick={() => setSidebarOpen(false)}
-          className="absolute -right-10 top-4 p-2 bg-white rounded-lg shadow-md"
+          className="absolute left-54  top-4 p-2 bg-white rounded-lg shadow-md"
         >
           <X size={20} />
         </button>

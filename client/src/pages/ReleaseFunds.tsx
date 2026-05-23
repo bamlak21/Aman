@@ -39,6 +39,7 @@ const ReleaseFunds = () => {
     setReleasingId(escrowId);
 
     try {
+      await escrow.releaseEscrow(escrowId);
       toast.success("Funds released successfully");
       await fetchFundedEscrows();
     } catch (err: any) {

@@ -67,4 +67,12 @@ export const escrow = {
     });
     return res.data;
   },
+  myTotalEscrow: async()=>{
+    const res = await api.get("/api/escrow/getAmount");
+    return res.data;
+  },
+  releaseEscrow: async (escrowId: string) => {
+    const res = await api.patch(`/api/escrow/${escrowId}/release`);
+    return res.data;
+  }
 };

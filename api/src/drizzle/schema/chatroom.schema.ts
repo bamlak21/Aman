@@ -1,13 +1,14 @@
 import { uuid } from "drizzle-orm/pg-core";
-import { pgTable } from "drizzle-orm/pg-core";
-import { users } from "./user.schema";
-import { admins } from "./admin.schema";
+import { pgTable, timestamp } from "drizzle-orm/pg-core";
 import { dispute } from "./dispute.schema";
 
-export const chatroom = pgTable("chat-room",{
-  id:uuid("id").primaryKey().defaultRandom(),
-  disputeId:uuid("disputeId").notNull().references(()=>dispute.id),
-  senderId:uuid("senderId").notNull().references(()=>users.id),
-  recieverId:uuid("recieverId").notNull().references(()=>users.id),
-  adminId:uuid("adminId").notNull().references(()=>admins.id),
+export const chatroom = pgTable("chat_room", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  disputeId: uuid("dispute_id")
+    .notNull()
+    .unique()
+    .references(() => dispute.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });

@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
 import DisputesPage from "./pages/Disputes";
 import TransactionsPage from "./pages/Transactions";
+import AdminChat from "./pages/AdminChat";
 import Protected from "./utils/Protected";
 import AdminLayout from "./components/AdminLayout";
 
@@ -19,6 +20,8 @@ function App() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/disputes" element={<DisputesPage />} />
+            <Route path="/disputes/:disputeId/chat" element={<AdminChat />} />
+            <Route path="/chat" element={<AdminChat />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -4,7 +4,9 @@ import {
   fetchEscrow,
   fetchEscrows,
   initializeEscrowFunding,
-  confirmEscrowFunding,
+  confirmEscrowFunding, 
+  fetchUserAmount,
+  releaseFund,
 } from "../services/escrow.service";
 import { AuthReq } from "../types/auth";
 import { AppError } from "../utils/AppError";
@@ -53,13 +55,13 @@ export const create = async (
     if (!payerId) {
       next(new AppError(400, "Missing data"));
       return;
-    }  
+    }
     const escrow = await createEscrow({
       payerId,
       payeeId,
       amountCents,
       releaseCondition,
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      expiresAt: releaseCondition==='auto_after_date'?new Date(expiresAt):null,
       milestoneDetails,
     });
     return res.status(201).json({
@@ -130,7 +132,27 @@ export const getUserEscrows = async (
     next(error);
   }
 };
+export const getUserAmount = async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction
+)=>{
+const userId = req.user?.id;
+if(!userId){
+  next(new AppError(403,"An Unauthorized access"))
+  return;
+}
 
+try{
+  const data = await fetchUserAmount(userId)
+
+res.status(200).json(data)
+return;
+}
+catch(error){
+  next(error)
+}
+}
 export const fundEscrowByPayer = async (
   req: AuthReq,
   res: Response,
@@ -164,14 +186,18 @@ export const verifyEscrowPayment = async (
   next: NextFunction,
 ) => {
   const { escrowId, tx_ref } = req.query;
-
+  const userId = req.user?.id
+  if(!userId){
+    next(new AppError(404,'user not found'))
+    return;
+  }
   if (!escrowId || !tx_ref || typeof escrowId !== "string" || typeof tx_ref !== "string") {
     next(new AppError(400, "Missing escrowId or tx_ref"));
     return;
   }
 
   try {
-    const escrow = await confirmEscrowFunding(escrowId, tx_ref);
+    const escrow = await confirmEscrowFunding(escrowId, tx_ref,userId);
 
     res.status(200).json({
       message: "Escrow funded successfully",
@@ -185,10 +211,11 @@ export const verifyEscrowPayment = async (
 
 export const webhookHandler = async (
   req: AuthReq,
-  res: Response,
+  res: Response
 ) => {
   const { tx_ref, status, amount } = req.body;
-
+  const userId:any = req.user?.id;
+  
   console.log("Chapa Webhook received:", { tx_ref, status, amount });
 
   if (status === "success" && tx_ref) {
@@ -196,7 +223,7 @@ export const webhookHandler = async (
     if (match) {
       const escrowId = match[1];
       try {
-        await confirmEscrowFunding(escrowId, tx_ref);
+        await confirmEscrowFunding(escrowId, tx_ref,userId);
         console.log(`Escrow ${escrowId} funded via webhook`);
       } catch (error) {
         console.error("Error confirming escrow funding via webhook:", error);
@@ -205,4 +232,30 @@ export const webhookHandler = async (
   }
 
   res.status(200).json({ received: true });
+};
+
+export const releaseEscrow = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  if (!id || !userId) {
+    next(new AppError(401, "Missing Required Fields"));
+    return;
+  }
+
+  try {
+    const updatedEscrow = await releaseFund(id, userId);
+
+    res.status(200).json({
+      message: "Escrow funds released successfully",
+      escrow: updatedEscrow,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
 };

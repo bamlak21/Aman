@@ -9,6 +9,7 @@ import { Admin } from "../types/admin";
 import { admins} from "../drizzle/schema/admin.schema";
 import { dispute } from "../drizzle/schema/dispute.schema";
 import { escrow, escrowParties, users } from "../drizzle/schema";
+import { transactions } from "../drizzle/schema/transactions.schema";
 
 
 
@@ -128,17 +129,90 @@ export const fetchAllDispute =async()=>{
 }
 
 export const resolveDisputeService = async(disputeId:string, resolution:string)=>{
-  const [updated] = await db
-    .update(dispute)
-    .set({ resolution: resolution as any, status: "Resolved", updatedAt: new Date() })
-    .where(eq(dispute.id, disputeId))
-    .returning();
+  return await db.transaction(async(tx)=>{
+    const dis = await tx.query.dispute.findFirst({
+      where: eq(dispute.id, disputeId),
+    });
+    if(!dis){
+      throw new AppError(404,"Dispute not found");
+    }
 
-  if(!updated){
-    throw new AppError(404,"Dispute not found");
-  }
+    const [updated] = await tx
+      .update(dispute)
+      .set({ resolution: resolution as any, status: "Resolved", updatedAt: new Date() })
+      .where(eq(dispute.id, disputeId))
+      .returning();
 
-  return updated;
+    const esc = await tx.query.escrow.findFirst({
+      where: eq(escrow.id, dis.escrow_id),
+    });
+    if(!esc) throw new AppError(404,"Escrow not found");
+
+    const parties = await tx
+      .select()
+      .from(escrowParties)
+      .where(eq(escrowParties.escrowId, esc.id));
+
+    const payer = parties.find((p) => p.role === "payer");
+    const payee = parties.find((p) => p.role === "payee");
+
+    switch(resolution){
+      case "refund_payer":
+        if(payer){
+          await tx.insert(transactions).values({
+            escrowId: esc.id,
+            type: "refund",
+            amountCents: esc.amountCents,
+            fromAccount: payee?.userId || null,
+            toAccount: payer.userId,
+          });
+        }
+        await tx.update(escrow).set({ status: "cancelled", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
+        break;
+
+      case "release_payee":
+        if(payee){
+          await tx.insert(transactions).values({
+            escrowId: esc.id,
+            type: "release",
+            amountCents: esc.amountCents,
+            fromAccount: payer?.userId || null,
+            toAccount: payee.userId,
+          });
+        }
+        await tx.update(escrow).set({ status: "released", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
+        break;
+
+      case "split":
+        const half = Math.floor(esc.amountCents / 2);
+        if(payer){
+          await tx.insert(transactions).values({
+            escrowId: esc.id,
+            type: "refund",
+            amountCents: half,
+            fromAccount: payee?.userId || null,
+            toAccount: payer.userId,
+          });
+        }
+        if(payee){
+          await tx.insert(transactions).values({
+            escrowId: esc.id,
+            type: "release",
+            amountCents: esc.amountCents - half,
+            fromAccount: payer?.userId || null,
+            toAccount: payee.userId,
+          });
+        }
+        await tx.update(escrow).set({ status: "released", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
+        break;
+
+      case "cancel":
+        await tx.update(escrow).set({ status: "cancelled", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
+        break;
+    }
+
+    return updated;
+  });
 }
 
 export const updateDisputeStatusService = async(disputeId:string, status:string)=>{

@@ -10,6 +10,8 @@ import FundEscrow from "./pages/FundEscrow";
 import ReleaseFunds from "./pages/ReleaseFunds";
 import Dispute from "./pages/Dispute";
 import Report from "./pages/Report";
+import ChatRoom from "./pages/ChatRoom";
+import ChatInbox from "./pages/ChatInbox";
 import Protected from "./utils/Protected";
 
 function App() {
@@ -28,6 +30,9 @@ function App() {
             <Route path="/release-funds" element={<ReleaseFunds />} />
             <Route path="/disputes" element={<Dispute />} />
             <Route path="/report" element={<Report />} />
+            <Route path="/disputes/:disputeId/chat" element={<ChatRoom />} />
+            <Route path="/chat" element={<ChatInbox />} />
+            <Route path="/chat/:disputeId" element={<ChatInbox />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

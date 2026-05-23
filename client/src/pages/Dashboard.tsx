@@ -65,13 +65,12 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
+      
+      const total = await escrow.myTotalEscrow();
+      const totalValue = total;
+      
       const res = await escrow.myEscrow();
       const escrows = res.escrows || [];
-      const totalReleased = escrows.filter((e)=> e.status==='released')
-      const totalValue = totalReleased.reduce(
-        (sum, e) => sum + (e.amountCents || 0),
-        0
-      );
       const activeEscrows = escrows.filter(
         (e) => e.status === "created" || e.status === "funded"
       ).length;

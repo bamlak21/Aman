@@ -1,3 +1,3 @@
 export function currencyUnitConverter(amountInCents: number) {
-  return amountInCents * 0.001;
+  return amountInCents * 0.01;
 }

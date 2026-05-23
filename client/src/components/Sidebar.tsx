@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   ArrowRightLeft,
+  MessageSquare,
   CirclePlus,
   CreditCard,
   BanknoteArrowDown,
@@ -25,6 +26,13 @@ const elements = {
       name: "Transactions",
       icon: ArrowRightLeft,
       link: "/transactions",
+    },
+  ],
+  communication: [
+    {
+      name: "Chat",
+      icon: MessageSquare,
+      link: "/chat",
     },
   ],
   escrowActions: [
@@ -95,6 +103,26 @@ const Sidebar = () => {
               <h4
                 onClick={() => navigate(m.link)}
                 className={` flex items-center gap-1 p-1 cursor-pointer rounded transition-colors duration-200 ${isActive ? "bg-gray-300" : "hover:bg-gray-300"}`}
+              >
+                <Icon size={18} />
+                {m.name}
+              </h4>
+            </div>
+          );
+        })}
+      </div>
+      <div className="p-3">
+        <h2 className="text-sm text-gray-500">Communication</h2>
+        {elements.communication.map((m) => {
+          const isActive = pathname === m.link || pathname.startsWith("/chat");
+          const Icon = m.icon as React.ForwardRefExoticComponent<
+            Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
+          >;
+          return (
+            <div className="mt-1" key={m.link}>
+              <h4
+                onClick={() => navigate(m.link)}
+                className={`flex items-center gap-1 p-1 cursor-pointer rounded transition-colors duration-200 ${isActive ? "bg-gray-300" : "hover:bg-gray-300"}`}
               >
                 <Icon size={18} />
                 {m.name}

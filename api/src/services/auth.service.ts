@@ -63,13 +63,12 @@ export const authenticateUser = async (
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
   });
-
-  if(!user?.isActive){
-    throw new AppError(403,"Your account has been suspended")
-  }
-
   if (!user) {
     throw new AppError(401, "User doesn't exist");
+  }
+
+  if(user?.isActive===false){
+    throw new AppError(403,"Your account has been suspended")
   }
 
   const isMatch = await bcrypt.compare(password, user.password);

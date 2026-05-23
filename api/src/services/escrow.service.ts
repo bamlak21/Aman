@@ -1,14 +1,15 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "../config/db";
-import { escrow, escrowParties, transactions, users } from "../drizzle/schema";
+import { escrow, escrowParties, platformBalance, transactions, users } from "../drizzle/schema";
 import { AppError } from "../utils/AppError";
+import { notification } from "../drizzle/schema/notification.schema";
 
 type CreateEscrowInput = {
   payerId: string;
   payeeId: string;
   amountCents: number;
   releaseCondition: "manual" | "auto_after_date" | "milestone";
-  expiresAt?: Date;
+  expiresAt?:any;
   milestoneDetails?: string;
 };
 
@@ -25,8 +26,8 @@ export const createEscrow = async (input: CreateEscrowInput) => {
   if (expiresAt && expiresAt <= new Date()) {
     throw new AppError(400, "Expiration date must be in the future");
   }
-
   return await db.transaction(async (tx) => {
+    
     const [createEscrow] = await tx
       .insert(escrow)
       .values({
@@ -36,7 +37,8 @@ export const createEscrow = async (input: CreateEscrowInput) => {
         milestoneDetails,
       })
       .returning();
-
+    
+    
     await tx.insert(escrowParties).values([
       {
         escrowId: createEscrow.id,
@@ -101,7 +103,6 @@ export const fetchEscrows = async (userId: string) => {
     .from(escrowParties)
     .innerJoin(escrow, eq(escrow.id, escrowParties.escrowId))
     .innerJoin(users, eq(users.id, escrowParties.userId))
-    // .innerJoin(fund,eq(fund.userId,escrowParties.userId))
     .where(inArray(escrow.id, escrowIds));
 
   const grouped = new Map();
@@ -136,6 +137,23 @@ export const fetchEscrows = async (userId: string) => {
   return Array.from(grouped.values());
 };
 
+export const fetchUserAmount = async (userId: string) => {
+  const rows = await db
+    .select({ amountCents: transactions.amountCents })
+    .from(transactions)
+    .innerJoin(escrow, eq(escrow.id, transactions.escrowId))
+    .where(
+      and(
+        eq(transactions.toAccount, userId),
+        eq(transactions.type, "release"),
+        eq(escrow.status, "released"),
+      ),
+    );
+
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amountCents), 0);
+
+  return totalAmount;
+}
 export const initializeEscrowFunding = async (escrowId: string, userId: string) => {
   const escrowData = await fetchEscrow(escrowId, userId);
 
@@ -172,7 +190,7 @@ export const initializeEscrowFunding = async (escrowId: string, userId: string) 
   };
 };
 
-export const confirmEscrowFunding = async (escrowId: string, tx_ref: string) => {
+export const confirmEscrowFunding = async (escrowId: string, tx_ref: string,userId:string) => {
   const [escrowRecord] = await db
     .select()
     .from(escrow)
@@ -231,7 +249,18 @@ export const confirmEscrowFunding = async (escrowId: string, tx_ref: string) => 
         toAccount: null,
       });
     }
+    const user = await tx.select().from(escrowParties).
+    where(and(
+      eq(escrowParties.userId,userId),
+      eq(escrowParties.role,'payer')
+   ) )
 
+    if(user){
+      await tx.insert(platformBalance).values({
+        user_id:userId,
+        balance_cents:escrowRecord.amountCents
+      })
+    }
     return updatedEscrow;
   });
 };
@@ -271,9 +300,153 @@ export const fundEscrow = async (escrowId: string, userId: string) => {
         toAccount: null,
       })
       .returning();
+    const [balance]  = await db.insert(platformBalance).values({
+      user_id:userId,
+      balance_cents:escrowData.amount
+    }).returning(); 
 
     console.log(txn);
+    console.log(balance);
+    
 
     return updatedEscrow;
   });
 };
+export const releaseFund = async (escrowId: string, userId: string) => {
+  const escrowData = await fetchEscrow(escrowId, userId);
+
+  return await db.transaction(async (tx) => {
+    const payer = escrowData.parties.find(
+      (party) => party.userId === userId && party.role === "payer",
+    );
+    if (!payer) throw new AppError(403, "Only the payer can release escrow funds");
+
+    const payee = escrowData.parties.find((party) => party.role === "payee");
+    if (!payee) throw new AppError(404, "Payee not found for this escrow");
+
+    if (escrowData.releaseConditions === "auto_after_date") {
+      if (!escrowData.expiresAt) {
+        throw new AppError(400, "Expiration date is not set for this escrow");
+      }
+      if (new Date() < escrowData.expiresAt) {
+        throw new AppError(400, "Cannot release funds before the expiration date");
+      }
+    }
+
+    const [updatedEscrow] = await tx
+      .update(escrow)
+      .set({ status: "released", updatedAt: new Date() })
+      .where(and(eq(escrow.id, escrowId), eq(escrow.status, "funded")))
+      .returning();
+
+    if (!updatedEscrow) {
+      throw new AppError(400, "Escrow must be funded to release funds");
+    }
+
+    await tx.insert(transactions).values({
+      escrowId,
+      amountCents: escrowData.amount,
+      type: "release",
+      fromAccount: payer.userId,
+      toAccount: payee.userId,
+    });
+
+    await tx.insert(notification).values({
+      escrow_id: escrowId,
+      user_id: payee.userId,
+      text: escrowData.releaseConditions === "auto_after_date"
+        ? `payment is done automatically with ${escrowData.amount / 100} ETB`
+        : `payment of ${escrowData.amount / 100} ETB has been manually released by the payer`,
+      isRead: false,
+      type: "release-fund",
+    });
+   
+    return updatedEscrow;
+  });
+};
+
+export const notifyOverdueEscrow = async() =>{
+  const over = await db.select().from(escrow)
+    .leftJoin(escrowParties, eq(escrow.id, escrowParties.escrowId))
+    .where(
+      and(
+        eq(escrow.status, 'created'),
+        eq(escrow.releaseCondition, 'auto_after_date'),
+        lt(escrow.expiresAt, new Date())
+      )
+    )
+
+  for(const row of over){
+    if(row.escrow_parties?.role === 'payer'){
+      await db.insert(notification).values({
+        escrow_id: row.escrow.id,
+        user_id: row.escrow_parties.userId,
+        text: `the due date for escrow ${row.escrow.id} has passed. please fund the escrow with ${row.escrow.amountCents / 100} ETB`,
+        isRead: false,
+        type: "release-fund",
+      })
+    }
+  }
+}
+
+
+export const automaticReleaseFund = async () =>{
+  const rows = await db.select()
+    .from(escrow)
+    .leftJoin(escrowParties, eq(escrow.id, escrowParties.escrowId))
+    .where(
+      and(
+        eq(escrow.status, 'funded'),
+        eq(escrow.releaseCondition, 'auto_after_date'),
+        lt(escrow.expiresAt, new Date())
+      )
+    )
+
+  const escrowMap = new Map<string, { escrow: typeof escrow.$inferSelect; payerId: string | null; payeeId: string | null }>()
+
+  for (const row of rows) {
+    if (!escrowMap.has(row.escrow.id)) {
+      escrowMap.set(row.escrow.id, { escrow: row.escrow, payerId: null, payeeId: null })
+    }
+    const entry = escrowMap.get(row.escrow.id)!
+    if (row.escrow_parties?.role === 'payer') {
+      entry.payerId = row.escrow_parties.userId
+    } else if (row.escrow_parties?.role === 'payee') {
+      entry.payeeId = row.escrow_parties.userId
+    }
+  }
+
+  for (const [, entry] of escrowMap) {
+    if (!entry.payerId || !entry.payeeId) continue
+
+    await db.transaction(async (tx) => {
+      await tx.update(escrow)
+        .set({ status: 'released', updatedAt: new Date() })
+        .where(eq(escrow.id, entry.escrow.id))
+
+      await tx.insert(transactions).values({
+        escrowId: entry.escrow.id,
+        amountCents: entry.escrow.amountCents,
+        type: 'release',
+        fromAccount: entry.payerId,
+        toAccount: entry.payeeId,
+      })
+
+      await tx.insert(notification).values({
+        escrow_id: entry.escrow.id,
+        user_id: entry.payeeId,
+        text: `payment of ${entry.escrow.amountCents / 100} ETB has been automatically released`,
+        isRead: false,
+        type: 'release-fund',
+      })
+      await tx.insert(notification).values({
+        escrow_id: entry.escrow.id,
+        user_id: entry.payerId,
+        text: `payment of ${entry.escrow.amountCents / 100} ETB has been automatically released`,
+        isRead: false,
+        type: 'release-fund',
+      })
+    })
+  }
+}
+    

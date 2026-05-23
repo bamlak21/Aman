@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Users, Search, MoreVertical, UserPlus, RefreshCw } from "lucide-react";
 import { admin } from "../api/admin.api";
 import UserRegModal from "../components/UserRegModal";
@@ -12,7 +13,7 @@ type UserData = {
   email: string;
   role: string;
   createdAt: string;
-  status: string;
+  isActive: boolean;
 };
 type message ={
   message:string;
@@ -24,6 +25,8 @@ const UsersPage = () => {
   const [selectedUser, setSelectedUser] = useState<any>();
   const [openModal,setOpenModal]=useState(false);
   const [openRevModal,setOpenRevModal]=useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -55,6 +58,18 @@ const UsersPage = () => {
       day: "numeric",
     });
   };
+
+  useEffect(() => {
+    if (!menuPos) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuPos(null);
+        setSelectedUser(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuPos]);
 
   const revoke = async(userId:string,isActive:boolean) =>{
     
@@ -177,48 +192,66 @@ const UsersPage = () => {
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
-                          user.status === "active"
+                          user.isActive === true
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
-                            user.status === "active" ? "bg-green-500" : "bg-gray-400"
+                            user.isActive === true ? "bg-green-500" : "bg-gray-400"
                           }`}
                         />
-                        {user.status}
+                        {user.isActive?"Active":"suspended"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatDate(user.createdAt)}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right relative">
                       <button
-                        onClick={() =>
-                          setSelectedUser(selectedUser === user.id ? null : user.id)
-                        }
+                        onClick={(e) => {
+                          if (selectedUser === user.id) {
+                            setSelectedUser(null);
+                            setMenuPos(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const menuHeight = 140;
+                            setMenuPos({
+                              top: spaceBelow >= menuHeight ? rect.bottom : rect.top - menuHeight,
+                              right: window.innerWidth - rect.right,
+                            });
+                            setSelectedUser(user.id);
+                          }
+                        }}
                         className="p-1 hover:bg-gray-200 rounded transition"
                       >
                         <MoreVertical size={16} />
                       </button>
-                      {selectedUser === user.id && (
-                        <div className="absolute right-8 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 w-40">
-                          <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition">
-                            View Details
-                          </button>
-                          <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition">
-                            Edit User
-                          </button>
-                          <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
-                          onClick={()=>{
-                          setOpenRevModal(true)
-                          setSelectedUser(user.id)
-                          }}>
-                            Suspend User
-                          </button>
-                        </div>
-                      )}
+                      {selectedUser === user.id && menuPos &&
+                        createPortal(
+                          <div
+                            ref={menuRef}
+                            style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
+                            className="bg-white rounded-lg shadow-lg border border-gray-200 py-0 z-50 w-40"
+                          >
+                            <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition">
+                              View Details
+                            </button>
+                            <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition">
+                              Edit User
+                            </button>
+                            <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
+                            onClick={()=>{
+                            setOpenRevModal(true)
+                            setMenuPos(null)
+                            }}>
+                              Suspend User
+                            </button>
+                          </div>,
+                          document.body
+                        )}
                     </td>
                   </tr>
                 ))

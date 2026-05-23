@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Search,
@@ -38,6 +39,7 @@ type DisputeData = {
 type ResolutionType = "refund_payer" | "release_payee" | "split" | "cancel";
 
 const DisputesPage = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [disputes, setDisputes] = useState<DisputeData[]>([]);
@@ -325,6 +327,17 @@ const DisputesPage = () => {
                         >
                           <Eye size={16} />
                         </button>
+                        {dispute.status === "Negotiating" && (
+                          <button
+                            onClick={() => {
+                              navigate(`/disputes/${dispute.id}/chat`);
+                            }}
+                            className="p-1.5 hover:bg-blue-100 text-blue-600 rounded transition"
+                            title="Open Chat"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                        )}
                         {dispute.status !== "Resolved" && (
                           <button
                             onClick={() => {

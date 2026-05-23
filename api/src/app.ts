@@ -7,6 +7,7 @@ import escrowRoutes from "./routes/escrow.route";
 import userRoutes from "./routes/user.routes";
 import adminRoutes from "./routes/admin.routes";
 import disputeRoutes from "./routes/dispute.routes";
+import chatRoutes from "./routes/chat.routes";
 import { errorHandler } from "./middleware/error.middleware";
 import cookieParser from "cookie-parser";
 import path from "path";
@@ -21,7 +22,7 @@ app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173","http://localhost:5174","http://localhost:5175"],
+    origin: ["http://192.168.100.107:5173","http://localhost:5174","http://localhost:5173"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
@@ -40,7 +41,7 @@ app.use("/api/escrow", escrowRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/dispute", disputeRoutes);
-app.use("/api/dispute", disputeRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Error handler middleware
 app.use(errorHandler);

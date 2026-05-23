@@ -2,6 +2,7 @@ import {
   Shield,
   Users,
   AlertTriangle,
+  MessageSquare,
   ArrowRightLeft,
   LayoutDashboard,
   User2Icon,
@@ -34,6 +35,11 @@ const elements = {
       name: "Disputes",
       icon: AlertTriangle,
       link: "/disputes",
+    },
+    {
+      name: "Chat",
+      icon: MessageSquare,
+      link: "/chat",
     },
   ],
 };

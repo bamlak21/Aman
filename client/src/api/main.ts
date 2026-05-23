@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios"; // AxiosError, type AxiosRequestConfig
 import { useAuthStore } from "../store/useAuthStore";
+import toast from "react-hot-toast";
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
@@ -48,9 +49,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const originalRequest = error.config as CustomAxiosRequestConfig;
-
-    if (error.response?.status === 404 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       console.log("Failed token, refreshing...");
+      toast.error("Session expired")
 
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
