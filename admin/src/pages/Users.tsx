@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Users, Search, MoreVertical, UserPlus, RefreshCw } from "lucide-react";
-import { admin } from "../api/admin.api";
+import { admins } from "../api/admin.api";
 import UserRegModal from "../components/UserRegModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -31,7 +31,7 @@ const UsersPage = () => {
     setLoading(true);
     try {
       // TODO: Replace with actual API call
-      const Users:UserData[]= await admin.users()
+      const Users:UserData[]= await admins.users()
       setUsers(Users||[]);
       
     } catch (error) {
@@ -42,6 +42,7 @@ const UsersPage = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUsers();
   }, []);
 
@@ -75,7 +76,7 @@ const UsersPage = () => {
     
     try
     {
-      const data = await admin.suspendUser(userId,isActive) 
+      const data = await admins.suspendUser(userId,isActive) 
       // toast.success("Suspend Successfully");
       return data
     }

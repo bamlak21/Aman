@@ -56,7 +56,7 @@ api.interceptors.response.use(
         originalRequest.url?.includes("/register");
 
       if (isAuthRequest) {
-        toast.error("Session Expired")
+        
         return Promise.reject(error);
       }
 
@@ -87,6 +87,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (error) {
+        toast.error("Session Expired");
         processQueue(error, null);
         useAuthStore.setState({ token: null });
         return Promise.reject(error);

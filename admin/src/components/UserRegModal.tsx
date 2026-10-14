@@ -1,6 +1,6 @@
 import axios from "axios";
 import toast from "react-hot-toast";
-import { admin } from "../api/admin.api";
+import { admins } from "../api/admin.api";
 import { useForm } from "react-hook-form";
 import { registerSchema, type RegisterSchema } from "../validation/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,7 @@ const UserRegModal = ({ isOpen, onClose }: ConfirmModalProps) => {
     const createUser = async (data: userRegData) => {
         setLoading(true);
         try {
-            await admin.newUser(data);
+            await admins.newUser(data);
             toast.success("User created successfully");
             setLoading(false);
             reset();

@@ -6,9 +6,12 @@ import {
   Eye,
   Filter,
   XCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
-import { admin } from "../api/admin.api";
-import ConfirmModal from "../components/ConfirmModal";
+import { admins } from "../api/admin.api";
+
 
 type EscrowData = {
   id: string;
@@ -34,11 +37,12 @@ const TransactionsPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<EscrowData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const data = await admin.fetchTransactions();
+      const data = await admins.fetchTransactions();
       setTransactions(data || []);
     } catch (error) {
       console.error("Failed to load transactions:", error);
@@ -48,6 +52,7 @@ const TransactionsPage = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTransactions();
   }, []);
 
@@ -60,6 +65,16 @@ const TransactionsPage = () => {
     const matchesStatus = statusFilter === "all" || t.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortOrder === "asc") return a.amountCents - b.amountCents;
+    if (sortOrder === "desc") return b.amountCents - a.amountCents;
+    return 0;
+  });
+
+  const toggleSort = () => {
+    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -131,7 +146,9 @@ const TransactionsPage = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-500 mt-1">Monitor all escrow transactions across the platform</p>
+          <p className="text-gray-500 mt-1">
+            Monitor all escrow transactions across the platform
+          </p>
         </div>
         <button
           onClick={loadTransactions}
@@ -146,27 +163,43 @@ const TransactionsPage = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
           <p className="text-xs text-gray-500 font-medium uppercase">Total</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{transactions.length}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {transactions.length}
+          </p>
         </div>
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
           <p className="text-xs text-gray-500 font-medium uppercase">Created</p>
-          <p className="text-2xl font-bold text-yellow-600 mt-1">{createdCount}</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">
+            {createdCount}
+          </p>
         </div>
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
           <p className="text-xs text-gray-500 font-medium uppercase">Funded</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">{fundedCount}</p>
         </div>
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase">Released</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{releasedCount}</p>
+          <p className="text-xs text-gray-500 font-medium uppercase">
+            Released
+          </p>
+          <p className="text-2xl font-bold text-green-600 mt-1">
+            {releasedCount}
+          </p>
         </div>
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase">Disputed</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">{disputedCount}</p>
+          <p className="text-xs text-gray-500 font-medium uppercase">
+            Disputed
+          </p>
+          <p className="text-2xl font-bold text-red-600 mt-1">
+            {disputedCount}
+          </p>
         </div>
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase">Total Value</p>
-          <p className="text-lg font-bold text-gray-900 mt-1">{(totalValue / 100).toFixed(0)} ETB</p>
+          <p className="text-xs text-gray-500 font-medium uppercase">
+            Total Value
+          </p>
+          <p className="text-lg font-bold text-gray-900 mt-1">
+            {(totalValue / 100).toFixed(0)} ETB
+          </p>
         </div>
       </div>
 
@@ -185,21 +218,27 @@ const TransactionsPage = () => {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Filter size={14} className="text-gray-400" />
-            {["all", "created", "funded", "released", "disputed", "cancelled", "expired"].map(
-              (status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-2.5 py-1 text-xs rounded-lg transition capitalize ${
-                    statusFilter === status
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {status}
-                </button>
-              )
-            )}
+            {[
+              "all",
+              "created",
+              "funded",
+              "released",
+              "disputed",
+              "cancelled",
+              "expired",
+            ].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-2.5 py-1 text-xs rounded-lg transition capitalize ${
+                  statusFilter === status
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
             <span className="text-xs text-gray-500 ml-2">
               {filtered.length} result{filtered.length !== 1 ? "s" : ""}
             </span>
@@ -221,11 +260,24 @@ const TransactionsPage = () => {
                   Payee
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Amount
+                  <button
+                    onClick={toggleSort}
+                    className="inline-flex items-center gap-1 hover:text-gray-900 transition"
+                    title="Sort by amount"
+                  >
+                    Amount
+                    {sortOrder === "asc" ? (
+                      <ArrowUp size={14} />
+                    ) : sortOrder === "desc" ? (
+                      <ArrowDown size={14} />
+                    ) : (
+                      <ArrowUpDown size={14} />
+                    )}
+                  </button>
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {/* <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
-                </th>
+                </th> */}
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Condition
                 </th>
@@ -248,43 +300,51 @@ const TransactionsPage = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((txn) => (
+                sorted.map((txn) => (
                   <tr key={txn.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-4">
-                      <p className="font-mono text-sm text-gray-600">
+                      <p className="font-mono text-sm text-gray-600 flex flex-col gap-2 justify-center">
                         {txn.id.slice(0, 8)}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(txn.status)}`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              txn.status === "created"
+                                ? "bg-yellow-500"
+                                : txn.status === "funded"
+                                  ? "bg-blue-500"
+                                  : txn.status === "released"
+                                    ? "bg-green-500"
+                                    : txn.status === "disputed"
+                                      ? "bg-red-500"
+                                      : "bg-gray-400"
+                            }`}
+                          />
+                          {txn.status}
+                        </span>
                       </p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-sm font-medium text-gray-900">{txn.payerName || "N/A"}</p>
-                      <p className="text-xs text-gray-500">{txn.payerEmail || "N/A"}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {txn.payerName || "N/A"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {txn.payerEmail || "N/A"}
+                      </p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-sm font-medium text-gray-900">{txn.payeeName || "N/A"}</p>
-                      <p className="text-xs text-gray-500">{txn.payeeEmail || "N/A"}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {txn.payeeName || "N/A"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {txn.payeeEmail || "N/A"}
+                      </p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-sm font-semibold">{(txn.amountCents / 100).toFixed(2)} ETB</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(txn.status)}`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            txn.status === "created"
-                              ? "bg-yellow-500"
-                              : txn.status === "funded"
-                              ? "bg-blue-500"
-                              : txn.status === "released"
-                              ? "bg-green-500"
-                              : txn.status === "disputed"
-                              ? "bg-red-500"
-                              : "bg-gray-400"
-                          }`}
-                        />
-                        {txn.status}
-                      </span>
+                      <p className="text-sm font-semibold">
+                        {(txn.amountCents / 100).toFixed(2)} ETB
+                      </p>
                     </td>
                     <td className="px-4 py-4">
                       <span className="text-sm text-gray-600">
@@ -320,18 +380,22 @@ const TransactionsPage = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Transaction Details</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Transaction Details
+                </h2>
                 <button
                   onClick={() => setShowDetailModal(false)}
                   className="p-1 hover:bg-gray-100 rounded transition"
                 >
-                  <XCircle/>
+                  <XCircle />
                 </button>
               </div>
             </div>
             <div className="p-6 space-y-5">
               <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedTxn.status)}`}>
+                <span
+                  className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedTxn.status)}`}
+                >
                   {selectedTxn.status}
                 </span>
                 <span className="text-lg font-bold text-gray-900">
@@ -341,58 +405,96 @@ const TransactionsPage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Payer</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedTxn.payerName || "N/A"}</p>
-                  <p className="text-xs text-gray-500">{selectedTxn.payerEmail || "N/A"}</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Payer
+                  </p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedTxn.payerName || "N/A"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {selectedTxn.payerEmail || "N/A"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Payee</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedTxn.payeeName || "N/A"}</p>
-                  <p className="text-xs text-gray-500">{selectedTxn.payeeEmail || "N/A"}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Release Condition</p>
-                  <p className="text-sm text-gray-900">{getConditionLabel(selectedTxn.releaseCondition)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Expires At</p>
-                  <p className="text-sm text-gray-900">
-                    {selectedTxn.expiresAt ? formatDateTime(selectedTxn.expiresAt) : "N/A"}
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Payee
+                  </p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedTxn.payeeName || "N/A"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {selectedTxn.payeeEmail || "N/A"}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Created</p>
-                  <p className="text-sm text-gray-900">{formatDateTime(selectedTxn.createdAt)}</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Release Condition
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {getConditionLabel(selectedTxn.releaseCondition)}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Last Updated</p>
-                  <p className="text-sm text-gray-900">{formatDateTime(selectedTxn.updatedAt)}</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Expires At
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {selectedTxn.expiresAt
+                      ? formatDateTime(selectedTxn.expiresAt)
+                      : "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Created
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {formatDateTime(selectedTxn.createdAt)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Last Updated
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {formatDateTime(selectedTxn.updatedAt)}
+                  </p>
                 </div>
               </div>
 
               {selectedTxn.paidAt && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Paid At</p>
-                  <p className="text-sm text-green-600 font-medium">{formatDateTime(selectedTxn.paidAt)}</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Paid At
+                  </p>
+                  <p className="text-sm text-green-600 font-medium">
+                    {formatDateTime(selectedTxn.paidAt)}
+                  </p>
                 </div>
               )}
 
               {selectedTxn.txRef && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Transaction Reference</p>
-                  <p className="text-sm font-mono text-gray-900">{selectedTxn.txRef}</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Transaction Reference
+                  </p>
+                  <p className="text-sm font-mono text-gray-900">
+                    {selectedTxn.txRef}
+                  </p>
                 </div>
               )}
 
               {selectedTxn.milestoneDetails && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-medium">Milestone Details</p>
+                  <p className="text-xs text-gray-500 uppercase font-medium">
+                    Milestone Details
+                  </p>
                   <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg mt-1">
                     {selectedTxn.milestoneDetails}
                   </p>

@@ -4,7 +4,7 @@ export type ChatMessage = {
   id: string;
   chatroomId: string;
   senderId: string;
-  senderRole: "user" | "admin";
+  senderRole: "user" | "admin" | "system";
   senderName?: string;
   message: string;
   createdAt: string;

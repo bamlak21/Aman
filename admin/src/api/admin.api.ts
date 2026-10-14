@@ -2,7 +2,7 @@ import type { userRegData } from "../types/auth";
 import { api } from "./main";
 
 
-export const admin = {
+export const admins = {
   me: async () => {
     const res = await api.get("/admin/me");
     return res.data;
@@ -33,6 +33,10 @@ export const admin = {
   },
   fetchTransactions: async () => {
     const res = await api.get("/api/admin/transactions");
+    return res.data;
+  },
+  fetchStats: async () => {
+    const res = await api.get("/api/admin/stats");
     return res.data;
   },
   suspendUser: async(userId:string,isActive:boolean)=>{

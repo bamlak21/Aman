@@ -9,15 +9,53 @@ import {
   User,
   Calendar,
   CheckCircle,
-  XCircle,
   MessageSquare,
+  Filter,
+  X,
+  Hash,
+  Clock,
+  Brain,
+  Paperclip,
+  Tag,
+  Undo2,
+  Send,
+  Split,
+  Ban,
+  Check,
+  Scale,
+  Loader2,
+  ShieldAlert,
+  Handshake,
 } from "lucide-react";
-import { admin } from "../api/admin.api";
+import { admins } from "../api/admin.api";
 import toast from "react-hot-toast";
 import axios from "axios";
-import ConfirmModal from "../components/ConfirmModal";
 
 const apiUrl = import.meta.env.VITE_BASE_API_URL || "";
+
+type DisputeEvidence = {
+  id: string;
+  dispute_id: string;
+  uploaded_by: string;
+  type: string;
+  evidence_url: string[];
+  description: string | null;
+  createdAt: string;
+};
+
+type DisputeOfferRow = {
+  id: string;
+  dispute_id: string;
+  offered_by: string;
+  amount_cents: number;
+  terms: string | null;
+  status: "pending" | "accepted" | "rejected" | "expired" | "superseded";
+  is_counter_offer: boolean;
+  parent_offer_id: string | null;
+  responded_at: string | null;
+  expires_at: string | null;
+  createdAt: string;
+};
 
 type DisputeData = {
   id: string;
@@ -34,9 +72,45 @@ type DisputeData = {
   reporter_name?: string;
   reported_name?: string;
   escrow_amount?: number;
+  ai_severity_analysis?: string;
+  ai_suggested_path?: string;
+  ai_confidence?: number;
+  evidence?: DisputeEvidence[];
+  offers?: DisputeOfferRow[];
 };
 
 type ResolutionType = "refund_payer" | "release_payee" | "split" | "cancel";
+
+const RESOLUTION_OPTIONS = [
+  {
+    value: "refund_payer",
+    label: "Refund to Payer",
+    desc: "Return funds to the payer",
+    icon: Undo2,
+    chip: "bg-amber-100 text-amber-700",
+  },
+  {
+    value: "release_payee",
+    label: "Release to Payee",
+    desc: "Release funds to the payee",
+    icon: Send,
+    chip: "bg-blue-100 text-blue-700",
+  },
+  {
+    value: "split",
+    label: "Split Funds",
+    desc: "Divide between both parties",
+    icon: Split,
+    chip: "bg-purple-100 text-purple-700",
+  },
+  {
+    value: "cancel",
+    label: "Cancel Escrow",
+    desc: "Cancel the escrow entirely",
+    icon: Ban,
+    chip: "bg-red-100 text-red-700",
+  },
+] as const;
 
 const DisputesPage = () => {
   const navigate = useNavigate();
@@ -44,40 +118,62 @@ const DisputesPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [disputes, setDisputes] = useState<DisputeData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDispute, setSelectedDispute] = useState<DisputeData | null>(null);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeData | null>(
+    null,
+  );
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
-  const [selectedResolution, setSelectedResolution] = useState<ResolutionType>("refund_payer");
+  const [selectedResolution, setSelectedResolution] =
+    useState<ResolutionType>("refund_payer");
   const [resolving, setResolving] = useState(false);
 
-  const loadDisputes = async () => {
-    setLoading(true);
+  const loadDisputes = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const data = await admin.fetchDispute();
-      setDisputes(data || []);
+      const data = await admins.fetchDispute();
+      const list = data || [];
+      setDisputes(list);
+      setSelectedDispute((prev) => {
+        if (!prev) return prev;
+        return list.find((d) => d.id === prev.id) ?? prev;
+      });
     } catch (error) {
       console.error("Failed to load disputes:", error);
-      toast.error("Failed to load disputes");
+      if (!silent) toast.error("Failed to load disputes");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDisputes();
   }, []);
 
-  const resolveDispute = async (disputeId: string, resolution: ResolutionType) => {
+  useEffect(() => {
+    if (!showDetailModal) return;
+    const interval = setInterval(() => {
+      loadDisputes(true);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [showDetailModal]);
+
+  const resolveDispute = async (
+    disputeId: string,
+    resolution: ResolutionType,
+  ) => {
     setResolving(true);
     try {
-      await admin.resolveDispute(disputeId, resolution);
+      await admins.resolveDispute(disputeId, resolution);
       toast.success("Dispute resolved successfully");
       setShowResolveModal(false);
       setSelectedDispute(null);
       loadDisputes();
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Failed to resolve dispute");
+        toast.error(
+          error.response?.data?.message || "Failed to resolve dispute",
+        );
       } else {
         toast.error("Failed to resolve dispute");
       }
@@ -86,26 +182,14 @@ const DisputesPage = () => {
     }
   };
 
-  const updateDisputeStatus = async (disputeId: string, status: string) => {
-    try {
-      await admin.updateDisputeStatus(disputeId, status);
-      toast.success("Dispute status updated");
-      loadDisputes();
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Failed to update status");
-      } else {
-        toast.error("Failed to update status");
-      }
-    }
-  };
-
   const filteredDisputes = disputes.filter((d) => {
     const matchesSearch =
       d.reason.toLowerCase().includes(search.toLowerCase()) ||
       d.dispute_type.toLowerCase().includes(search.toLowerCase()) ||
       d.id.slice(0, 8).toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || d.status.toLowerCase() === statusFilter.toLowerCase();
+    const matchesStatus =
+      statusFilter === "all" ||
+      d.status.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -143,6 +227,62 @@ const DisputesPage = () => {
     return labels[resolution] || resolution;
   };
 
+  const getSeverityColor = (severity: string) => {
+    const map: Record<string, string> = {
+      low: "bg-green-100 text-green-700",
+      medium: "bg-yellow-100 text-yellow-700",
+      high: "bg-orange-100 text-orange-700",
+      critical: "bg-red-100 text-red-700",
+    };
+    return map[severity] || "bg-gray-100 text-gray-600";
+  };
+
+  const getOfferStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      pending: "bg-blue-100 text-blue-700",
+      accepted: "bg-green-100 text-green-700",
+      rejected: "bg-red-100 text-red-700",
+      expired: "bg-gray-200 text-gray-600",
+      superseded: "bg-gray-100 text-gray-500",
+    };
+    return map[status] || "bg-gray-100 text-gray-600";
+  };
+
+  const getOfferCard = (status: string) => {
+    const map: Record<string, string> = {
+      pending: "border-blue-200 bg-blue-50/60",
+      accepted: "border-green-200 bg-green-50/60",
+      rejected: "border-red-200 bg-red-50/50",
+      superseded: "border-gray-200 bg-gray-50",
+      expired: "border-gray-200 bg-gray-50",
+    };
+    return map[status] || "border-gray-200 bg-gray-50";
+  };
+
+  const getOfferIcon = (status: string) => {
+    const map: Record<string, string> = {
+      pending: "bg-blue-100 text-blue-700",
+      accepted: "bg-green-100 text-green-700",
+      rejected: "bg-red-100 text-red-700",
+      superseded: "bg-gray-200 text-gray-500",
+      expired: "bg-gray-200 text-gray-500",
+    };
+    return map[status] || "bg-gray-200 text-gray-500";
+  };
+
+  const offerStatusIcon = (status: string) => {
+    switch (status) {
+      case "accepted":
+        return <CheckCircle size={16} />;
+      case "rejected":
+        return <X size={16} />;
+      case "pending":
+        return <Clock size={16} />;
+      default:
+        return <Ban size={16} />;
+    }
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
@@ -152,7 +292,9 @@ const DisputesPage = () => {
   };
 
   const pendingCount = disputes.filter((d) => d.status === "Pending").length;
-  const negotiatingCount = disputes.filter((d) => d.status === "Negotiating").length;
+  const negotiatingCount = disputes.filter(
+    (d) => d.status === "InNegotiation",
+  ).length;
   const resolvedCount = disputes.filter((d) => d.status === "Resolved").length;
 
   if (loading) {
@@ -170,10 +312,12 @@ const DisputesPage = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Disputes</h1>
-          <p className="text-gray-500 mt-1">Manage and resolve escrow disputes</p>
+          <p className="text-gray-500 mt-1">
+            Manage and resolve escrow disputes
+          </p>
         </div>
         <button
-          onClick={loadDisputes}
+          onClick={() => loadDisputes()}
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
         >
           <RefreshCw size={16} />
@@ -187,7 +331,9 @@ const DisputesPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {pendingCount}
+              </p>
             </div>
             <AlertTriangle className="text-yellow-500" size={28} />
           </div>
@@ -196,7 +342,9 @@ const DisputesPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Negotiating</p>
-              <p className="text-2xl font-bold text-blue-600">{negotiatingCount}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {negotiatingCount}
+              </p>
             </div>
             <MessageSquare className="text-blue-500" size={28} />
           </div>
@@ -205,7 +353,9 @@ const DisputesPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Resolved</p>
-              <p className="text-2xl font-bold text-green-600">{resolvedCount}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {resolvedCount}
+              </p>
             </div>
             <CheckCircle className="text-green-500" size={28} />
           </div>
@@ -226,7 +376,8 @@ const DisputesPage = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            {["all", "Pending", "Negotiating", "Resolved"].map((status) => (
+            <Filter className="h-5 w-5 mr-3" />
+            {["All", "Pending", "Negotiating", "Resolved"].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status.toLowerCase())}
@@ -240,7 +391,8 @@ const DisputesPage = () => {
               </button>
             ))}
             <span className="text-sm text-gray-500 ml-2">
-              {filteredDisputes.length} dispute{filteredDisputes.length !== 1 ? "s" : ""}
+              {filteredDisputes.length} dispute
+              {filteredDisputes.length !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
@@ -305,8 +457,8 @@ const DisputesPage = () => {
                             dispute.status === "Pending"
                               ? "bg-yellow-500"
                               : dispute.status === "Negotiating"
-                              ? "bg-blue-500"
-                              : "bg-green-500"
+                                ? "bg-blue-500"
+                                : "bg-green-500"
                           }`}
                         />
                         {dispute.status}
@@ -363,98 +515,310 @@ const DisputesPage = () => {
       {/* Detail Modal */}
       {showDetailModal && selectedDispute && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Dispute Details</h2>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative p-6 bg-linear-to-r from-gray-900 to-gray-700 overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-white/5" />
+              <div className="absolute -right-2 -bottom-14 w-32 h-32 rounded-full bg-white/5" />
+              <div className="flex items-center justify-between relative">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center">
+                    <ShieldAlert size={24} className="text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">
+                      Dispute Details
+                    </h2>
+                    <p className="text-xs text-gray-300 mt-0.5">
+                      Escrow {selectedDispute.escrow_id.slice(0, 8)} ·{" "}
+                      {getTypeLabel(selectedDispute.dispute_type)}
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="p-1 hover:bg-gray-100 rounded transition"
+                  className="p-1.5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition"
                 >
-                  <XCircle size={20} />
+                  <X size={20} />
                 </button>
               </div>
             </div>
+
             <div className="p-6 space-y-6">
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedDispute.status)}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(selectedDispute.status)}`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      selectedDispute.status === "Pending"
+                        ? "bg-yellow-500"
+                        : selectedDispute.status === "Negotiating"
+                          ? "bg-blue-500"
+                          : "bg-green-500"
+                    }`}
+                  />
                   {selectedDispute.status}
                 </span>
-                <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-700">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700">
+                  <Tag size={12} />
                   {getTypeLabel(selectedDispute.dispute_type)}
                 </span>
+                {selectedDispute.resolution && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                    <CheckCircle size={12} />
+                    {getResolutionLabel(selectedDispute.resolution)}
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <User size={16} className="text-gray-500" />
-                  <span className="text-gray-500">Escrow:</span>
-                  <span className="font-medium">{selectedDispute.escrow_id.slice(0, 8)}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                    <FileText size={16} className="text-gray-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
+                      Escrow
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {selectedDispute.escrow_id.slice(0, 8)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar size={16} className="text-gray-500" />
-                  <span className="text-gray-500">Created:</span>
-                  <span className="font-medium">{formatDate(selectedDispute.createdAt)}</span>
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                    <Calendar size={16} className="text-gray-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
+                      Created
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {formatDate(selectedDispute.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                    <Hash size={16} className="text-gray-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
+                      Dispute ID
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {selectedDispute.id.slice(0, 8)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                    <Clock size={16} className="text-gray-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
+                      Last updated
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {formatDate(selectedDispute.updatedAt)}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Reason</h3>
-                <p className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Parties
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 border border-green-100 bg-green-50/60 rounded-xl px-4 py-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                      <User size={18} className="text-green-700" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-green-700 font-medium uppercase tracking-wide">
+                        Reporter
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900 capitalize">
+                        {selectedDispute.reporter_name ||
+                          selectedDispute.reporter_id.slice(0, 8)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 border border-red-100 bg-red-50/60 rounded-xl px-4 py-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                      <ShieldAlert size={18} className="text-red-700" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-red-700 font-medium uppercase tracking-wide">
+                        Reported
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900 capitalize">
+                        {selectedDispute?.reported_name ||
+                          selectedDispute.reported_id.slice(0, 8)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
+                  <MessageSquare size={15} />
+                  Reason
+                </h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
                   {selectedDispute.reason}
                 </p>
               </div>
 
-              {selectedDispute.evidence_url && selectedDispute.evidence_url.length > 0 && (
+              {selectedDispute.offers && selectedDispute.offers.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <FileText size={16} />
-                    Evidence
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                    <Handshake size={15} />
+                    Settlement Offers
+                    <span className="ml-auto text-xs font-medium text-gray-400">
+                      {selectedDispute.offers.length}
+                    </span>
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDispute.evidence_url.map((url, i) => {
-                        const fullUrl = url.startsWith("http") ? url : `${apiUrl}${url}`;
-                        return (
-                          <a
-                            key={i}
-                            href={fullUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
+                  <div className="space-y-2">
+                    {[...selectedDispute.offers]
+                      .sort(
+                        (a, b) =>
+                          new Date(a.createdAt).getTime() -
+                          new Date(b.createdAt).getTime(),
+                      )
+                      .map((offer) => (
+                        <div
+                          key={offer.id}
+                          className={`flex items-center gap-3 border rounded-xl px-4 py-3 ${getOfferCard(offer.status)}`}
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${getOfferIcon(offer.status)}`}
                           >
-                            Evidence {i + 1}
-                          </a>
-                        );
-                      })}
+                            {offerStatusIcon(offer.status)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {(offer.amount_cents / 100).toFixed(2)} ETB
+                              </p>
+                              {offer.is_counter_offer && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                  counter
+                                </span>
+                              )}
+                            </div>
+                            {offer.terms && (
+                              <p className="text-xs text-gray-500 truncate mt-0.5">
+                                {offer.terms}
+                              </p>
+                            )}
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {offer.offered_by.slice(0, 8)} ·{" "}
+                              {formatDate(
+                                offer.responded_at || offer.createdAt,
+                              )}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-2 py-1 rounded-full text-[10px] font-semibold capitalize shrink-0 ${getOfferStatusBadge(offer.status)}`}
+                          >
+                            {offer.status}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
 
-              {selectedDispute.resolution && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Resolution</h3>
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-700">
-                    {getResolutionLabel(selectedDispute.resolution)}
-                  </span>
+              {selectedDispute.evidence &&
+                selectedDispute.evidence.length > 0 && (
+                  <div>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                      <Paperclip size={15} />
+                      Evidence
+                      <span className="ml-auto text-xs font-medium text-gray-400">
+                        {selectedDispute.evidence.reduce(
+                          (n, e) => n + e.evidence_url.length,
+                          0,
+                        )}
+                      </span>
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDispute.evidence.flatMap((ev) =>
+                        ev.evidence_url.map((url, i) => {
+                          const fullUrl = url.startsWith("http")
+                            ? url
+                            : `${apiUrl}${url}`;
+                          return (
+                            <a
+                              key={`${ev.id}-${i}`}
+                              href={fullUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
+                            >
+                              <FileText size={14} />
+                              Evidence {i + 1}
+                            </a>
+                          );
+                        }),
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {(selectedDispute.ai_suggested_path ||
+                selectedDispute.ai_severity_analysis) && (
+                <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-indigo-800 mb-3">
+                    <Brain size={15} />
+                    AI Analysis
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedDispute.ai_severity_analysis && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full capitalize ${getSeverityColor(selectedDispute.ai_severity_analysis)}`}
+                      >
+                        <AlertTriangle size={12} />
+                        {selectedDispute.ai_severity_analysis}
+                      </span>
+                    )}
+                    {selectedDispute.ai_suggested_path && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-white border border-indigo-200 text-indigo-700 capitalize">
+                        <Scale size={12} />
+                        {selectedDispute.ai_suggested_path.replace(/_/g, " ")}
+                      </span>
+                    )}
+                    {typeof selectedDispute.ai_confidence === "number" && (
+                      <span className="text-xs text-gray-500 font-medium">
+                        Confidence: {selectedDispute.ai_confidence}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-            <div className="p-6 border-t border-gray-200 flex gap-3">
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50/60 flex gap-3">
               {selectedDispute.status !== "Resolved" && (
                 <button
                   onClick={() => {
                     setShowDetailModal(false);
                     setShowResolveModal(true);
                   }}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+                  className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium inline-flex items-center justify-center gap-2"
                 >
+                  <CheckCircle size={16} />
                   Resolve Dispute
                 </button>
               )}
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition font-medium inline-flex items-center justify-center gap-2"
               >
+                <X size={16} />
                 Close
               </button>
             </div>
@@ -465,46 +829,81 @@ const DisputesPage = () => {
       {/* Resolve Modal */}
       {showResolveModal && selectedDispute && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Resolve Dispute</h2>
-              <p className="text-sm text-gray-500 mt-1">Choose how to resolve this dispute</p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {([
-                  { value: "refund_payer", label: "Refund to Payer", desc: "Return funds to the payer" },
-                  { value: "release_payee", label: "Release to Payee", desc: "Release funds to payee" },
-                  { value: "split", label: "Split Funds", desc: "Divide between both parties" },
-                  { value: "cancel", label: "Cancel Escrow", desc: "Cancel the escrow entirely" },
-                ] as const).map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setSelectedResolution(option.value)}
-                    className={`p-4 rounded-xl border-2 text-left transition ${
-                      selectedResolution === option.value
-                        ? "border-green-600 bg-green-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <p className="font-medium text-sm text-gray-900">{option.label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{option.desc}</p>
-                  </button>
-                ))}
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center shrink-0">
+                  <Scale size={22} className="text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Resolve Dispute
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Escrow {selectedDispute.escrow_id.slice(0, 8)} · Choose how
+                    to distribute the funds
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="p-6 border-t border-gray-200 flex gap-3">
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {RESOLUTION_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const selected = selectedResolution === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => setSelectedResolution(option.value)}
+                      className={`relative p-4 rounded-xl border-2 text-left transition group ${
+                        selected
+                          ? "border-green-600 bg-green-50 shadow-sm"
+                          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {selected && (
+                        <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center">
+                          <Check size={12} strokeWidth={3} />
+                        </span>
+                      )}
+                      <div
+                        className={`w-10 h-10 rounded-lg ${option.chip} flex items-center justify-center mb-2.5 transition group-hover:scale-110`}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <p className="font-semibold text-sm text-gray-900">
+                        {option.label}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {option.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl flex gap-3">
               <button
                 onClick={() => setShowResolveModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition font-medium inline-flex items-center justify-center gap-2"
               >
+                <X size={16} />
                 Cancel
               </button>
               <button
-                onClick={() => resolveDispute(selectedDispute.id, selectedResolution)}
+                onClick={() =>
+                  resolveDispute(selectedDispute.id, selectedResolution)
+                }
                 disabled={resolving}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
               >
+                {resolving ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CheckCircle size={16} />
+                )}
                 {resolving ? "Resolving..." : "Confirm Resolution"}
               </button>
             </div>

@@ -64,16 +64,14 @@ const AdminChat = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [typingUserId, setTypingUserId] = useState<string | null>(null);
-  const [typingName, setTypingName] = useState("");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
-  const [disputeInfo, setDisputeInfo] = useState<{ dispute_type: string; status: string; reason: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
@@ -99,13 +97,11 @@ const AdminChat = () => {
     socket.emit("join-dispute", activeDisputeId);
     chat.getDisputeChatroom(activeDisputeId).then((data) => {
       setMessages(data.messages);
-      setDisputeInfo({ dispute_type: data.dispute_type, status: data.status, reason: data.reason });
     }).catch(() => toast.error("Failed to load messages"));
 
     const onMsg = (msg: ChatMessage) => setMessages((prev) => [...prev, msg]);
     const onTyping = (data: { userId: string; isTyping: boolean; senderName?: string }) => {
       setTypingUserId(data.isTyping ? data.userId : null);
-      if (data.isTyping) setTypingName(data.senderName || "Someone");
     };
     const onOnline = (count: number) => setOnlineCount(count);
     socket.on("new-message", onMsg);
@@ -355,6 +351,14 @@ const AdminChat = () => {
                         </span>
                       </div>
                     )}
+                    {msg.senderRole === "system" ? (
+                      <div className="flex justify-center my-2.5">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-white border border-blue-200 px-3.5 py-1.5 rounded-full shadow-sm">
+                          <Shield size={12} className="text-blue-500" />
+                          {msg.message}
+                        </span>
+                      </div>
+                    ) : (
                     <div className={`flex items-end gap-2 mb-0.5 ${isOwnMessage(msg) ? "flex-row-reverse" : ""} ${
                       !shouldShowAvatar(messages, idx) ? "mb-0.5" : "mt-3"
                     }`}>
@@ -383,6 +387,7 @@ const AdminChat = () => {
                         </span>
                       </div>
                     </div>
+                    )}
                   </div>
                 ))}
                 {typingUserId && <TypingDots />}

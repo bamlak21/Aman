@@ -1,6 +1,6 @@
 import { SideImage } from "../components/SideImage";
 import { useForm } from "react-hook-form";
-import type { LoginResponse, adminLogin } from "../types/auth";
+import type { adminLogin } from "../types/auth";
 import { auth } from "../api/auth.api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";

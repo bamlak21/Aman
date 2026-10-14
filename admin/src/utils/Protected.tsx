@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Navigate, Outlet } from "react-router-dom";
-import { admin } from "../api/admin.api";
+import { admins } from "../api/admin.api";
 
 const Protected = () => {
   // const [isLoading, setIsLoading] = useState(true);
@@ -11,7 +11,7 @@ const Protected = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const data = await admin.me();
+        const data = await admins.me();
         login(data, token ?? "");
       } catch (error) {
         console.log(error);

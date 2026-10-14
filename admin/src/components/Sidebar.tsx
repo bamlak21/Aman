@@ -50,7 +50,7 @@ const Sidebar = () => {
   const { admin, logout } = useAuthStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const getInitials = (name?: string) => name?.slice(0, 2).toUpperCase();
+  const getInitials = (name?: string) => name?.split(" ").map((n)=>n[0]).join("").slice(0, 2).toUpperCase()||"U"
 
   return (
     <div className="flex flex-col w-full h-full bg-gray-900 text-white rounded-r-xl">
