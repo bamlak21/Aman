@@ -50,9 +50,14 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as CustomAxiosRequestConfig;
     if (error.response?.status === 401 && !originalRequest._retry) {
-      console.log("Failed token, refreshing...");
-      toast.error("Session expired")
+      const isAuthRequest =
+        originalRequest.url?.includes("/login") ||
+        originalRequest.url?.includes("/register");
 
+      if (isAuthRequest) {
+        
+        return Promise.reject(error);
+      }
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -81,6 +86,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (error) {
+        toast.error("Session Expired");
         processQueue(error, null);
         useAuthStore.setState({ token: null });
         return Promise.reject(error);

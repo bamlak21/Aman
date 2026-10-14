@@ -88,7 +88,7 @@ const Report = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-4xl mt-3 mx-auto p-6 bg-white border border-gray-200 shadow-xl/30 shadow-gray-400 rounded-2xl">
       <button
         onClick={() => navigate("/disputes")}
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"

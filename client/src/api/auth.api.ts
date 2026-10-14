@@ -18,4 +18,8 @@ export const auth = {
   logout: async (): Promise<void> => {
     await api.post("/api/auth/token/logout");
   },
+  fetchByemail: async (input: { email: string }) => {
+    const res = await api.post("/api/auth/fetchUser", input);
+    return res.data;
+  },
 };

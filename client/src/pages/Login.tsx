@@ -5,19 +5,15 @@ import { auth } from "../api/auth.api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useState } from "react";
-import { Bug } from "lucide-react";
+import { Bug, EyeClosed, EyeIcon } from "lucide-react";
 import axios from "axios";
 import { loginSchema, type LoginSchema } from "../validation/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-interface ResError {
-  error: string;
-  message: string;
-}
 
 const Login = () => {
   const [error, setError] = useState<string | null>(null);
-
+  const[showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate();
   const {
     register,
@@ -51,17 +47,17 @@ const Login = () => {
       {/* Place Holder image */}
       <SideImage />
       {/* Sign In Form */}
-      <div className="flex-1 h-full w-full flex flex-col items-center justify-center">
-        <div className="gap-5">
+      <div className="lg:flex-1 h-full w-full flex flex-col items-center justify-center p-4 border md:border-0 md:shadow-none border-gray-100 rounded-2xl shadow-2xl">
+        <div className="gap-5 p-3 lg:p-0">
           {/* Heading */}
           {error && (
             <p className="text-white bg-red-500 rounded p-1 flex justify-center items-center gap-5 mb-4">
               <Bug /> {error}
             </p>
           )}
-          <div className="flex flex-col items-center justify-center gap-2">
-            <h2 className="text-5xl font-semibold">Welcome Back</h2>
-            <p className="text-md text-gray-600">
+          <div className="flex flex-col items-center justify-center">
+            <h2 className="text-5xl lg:text-5xl font-semibold">Welcome Back</h2>
+            <p className="text-md text-gray-600 mt-4 lg:m-0">
               Enter your email and password to access your account
             </p>
           </div>
@@ -86,13 +82,16 @@ const Login = () => {
               <label htmlFor="password" className="font-semibold">
                 Password
               </label>
-              <input
-                className="p-2 bg-gray-200 rounded-lg outline-0 placeholder-gray-600"
-                type="password"
+              <div className="relative">
+                 <input
+                className="w-full p-2 bg-gray-200 rounded-lg outline-0 placeholder-gray-600"
+                type={showPassword?("text"):("password")}
                 id="password"
                 placeholder="Enter your password"
                 {...register("password", { required: "Password is required" })}
-              />
+              /> {showPassword?(<EyeIcon className="absolute right-3 top-1/4 " onClick={()=> setShowPassword(false)}/>):(<EyeClosed className="absolute right-3 top-1/4 " onClick={()=> setShowPassword(true)}/>)}
+              </div>
+             
 
               {errors.password && (
                 <p className="text-red-500">{errors.password.message}</p>
@@ -109,7 +108,7 @@ const Login = () => {
                 />
                 Remember Me
               </label>
-              <a href="#" className="text-[hsl(var(--accent))]">
+              <a onClick={()=>navigate("/forget")}  className="text-[hsl(var(--accent))]">
                 Forgot password?
               </a>
             </div>

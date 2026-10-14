@@ -19,7 +19,7 @@ export type LoginResponse = {
 };
 
 export type RegResponse = {
-  success: string;
+  message: string;
   user: User;
   accessToken: string;
 };

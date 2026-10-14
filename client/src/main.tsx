@@ -3,12 +3,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-
+import {Tooltip} from "react-tooltip"
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
-      <Toaster position="top-right" />
+      <Toaster position="top-right" toastOptions={{
+        duration: 3000
+      }}/>
+      <Tooltip id="my-tooltip" place="top" style={{backgroundColor:"white",color:"black"}}/>
     </BrowserRouter>
   </StrictMode>
 );

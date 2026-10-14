@@ -1,4 +1,7 @@
 import { api } from "./main";
+export type userEmail = {
+  email: string;
+}
 
 export const user = {
   me: async () => {
@@ -6,4 +9,5 @@ export const user = {
 
     return res.data;
   },
+ 
 };

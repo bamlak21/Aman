@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import axios from "axios";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -29,11 +30,14 @@ const Register = () => {
     try {
       setLoading(true);
       const res = await auth.register(data);
-      toast.success(res.success);
+      toast.success(res.message);
       login(res.user, res.accessToken);
       navigate("/dashboard");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Registration failed");
+    } catch (error:unknown) {
+      if(axios.isAxiosError(error)){
+        toast.error(error.response?.data?.message || "Registration failed");
+      }
+      
     } finally {
       setLoading(false);
     }

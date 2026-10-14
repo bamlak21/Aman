@@ -10,9 +10,11 @@ import FundEscrow from "./pages/FundEscrow";
 import ReleaseFunds from "./pages/ReleaseFunds";
 import Dispute from "./pages/Dispute";
 import Report from "./pages/Report";
-import ChatRoom from "./pages/ChatRoom";
+// import ChatRoom from "./pages/ChatRoom";
 import ChatInbox from "./pages/ChatInbox";
 import Protected from "./utils/Protected";
+import ForgetPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/" element={<Navigate to="/sign-in" replace />} />
         <Route path="/sign-in" element={<Login />} />
         <Route path="/sign-up" element={<Register />} />
+        <Route path="/forget" element={<ForgetPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<Protected />}>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />
@@ -30,9 +34,11 @@ function App() {
             <Route path="/release-funds" element={<ReleaseFunds />} />
             <Route path="/disputes" element={<Dispute />} />
             <Route path="/report" element={<Report />} />
-            <Route path="/disputes/:disputeId/chat" element={<ChatRoom />} />
+            {/* <Route path="/disputes/:disputeId/chat" element={<ChatRoom />} /> */}
             <Route path="/chat" element={<ChatInbox />} />
             <Route path="/chat/:disputeId" element={<ChatInbox />} />
+            <Route path="/disputes/:disputeId/chat" element={<ChatInbox />} />
+            
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

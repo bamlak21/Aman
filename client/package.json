@@ -14,12 +14,15 @@
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.2",
     "install": "^0.13.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.0",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.12.0",
+    "react-tooltip": "^6.0.8",
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.1.18",
     "zod": "^4.3.5",
@@ -38,7 +41,7 @@
     "globals": "^16.5.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^8.0.16"
   },
   "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
 }

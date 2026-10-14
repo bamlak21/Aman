@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/refs */
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuthStore } from "../store/useAuthStore";
@@ -70,7 +72,7 @@ export const useSocket = (disputeId?: string) => {
 
   const onOnlineUsers = (handler: (count: number) => void) => {
     socketRef.current?.on("online-users", handler);
-    console.log(handler);
+    // console.log(handler);
     
     return () => {
       socketRef.current?.off("online-users", handler);

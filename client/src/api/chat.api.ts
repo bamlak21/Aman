@@ -4,7 +4,7 @@ export type ChatMessage = {
   id: string;
   chatroomId: string;
   senderId: string;
-  senderRole: "user" | "admin";
+  senderRole: "user" | "admin" | "system";
   senderName?: string;
   message: string;
   createdAt: string;
@@ -54,6 +54,6 @@ export const chat = {
 
   getMyChats: async () => {
     const res = await api.get("/api/chat/my");
-    return res.data as MyChatItem[];
+    return res.data
   },
 };

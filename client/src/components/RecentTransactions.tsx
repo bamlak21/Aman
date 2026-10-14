@@ -48,7 +48,7 @@ const RecentTransactions = () => {
   }, []);
 
   return (
-    <div className="flex-1 border border-gray-300 p-5 rounded-2xl min-w-[280px]">
+    <div className="flex-1 border border-gray-300 p-5 rounded-2xl min-w-70 bg-linear-to-bl from-transparent to-gray-100">
       <div>
         <h2 className="font-semibold text-lg">Recent Transactions</h2>
         <h6 className="text-md font-light text-gray-400">
@@ -70,19 +70,19 @@ const RecentTransactions = () => {
               return (
                 <div
                   key={esc.id}
-                  className="flex p-2 rounded justify-between border border-gray-300 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="flex p-2 rounded-xl justify-between border bg-black text-white border-gray-300 cursor-pointer hover:bg-gray-50 hover:text-black transition-colors"
                   onClick={() => navigate("/transactions")}
                 >
                   <div className="flex flex-col min-w-0 flex-1">
                     <h2 className="truncate">
                       {direction} {otherParty?.name || "Unknown"}{" "}
                       <span
-                        className={`px-2 rounded-2xl text-sm ${getStatusStyle(esc.status)}`}
+                        className={`px-0.1 text-center w-18 rounded-lg md:px-2 lg:rounded-2xl text-sm block text-nowrap md:inline-flex ${getStatusStyle(esc.status)}`}
                       >
                         {esc.status}
                       </span>
                     </h2>
-                    <p className="text-sm font-light text-gray-600 truncate">
+                    <p className="text-sm font-light  text-gray-400 truncate">
                       Escrow #{esc.id.slice(0, 8)}
                     </p>
                   </div>

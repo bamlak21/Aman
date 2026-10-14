@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { escrow } from "../api/escrow.api";
 import toast from "react-hot-toast";
+import axios from "axios";
 
 const h = {
   heading: "Create New Escrow",
@@ -41,6 +42,7 @@ const CreateEscrow = () => {
   const [releaseCondition, setReleaseCondition] = useState<Condition>("manual");
   const [milestoneDetails, setMilestoneDetails] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [expireTime,setexpireTime] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,27 +72,30 @@ const CreateEscrow = () => {
         amount: parseFloat(amount),
         releaseCondition,
         milestoneDetails: releaseCondition === "milestone" ? milestoneDetails : undefined,
-        expiresAt: releaseCondition === "auto_after_date" ? expiresAt : undefined,
+        expiresAt: releaseCondition === "auto_after_date" ? `${expiresAt}T${expireTime}:00` : undefined,
       });
       toast.success("Escrow created successfully");
       navigate("/fund-escrow");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create escrow");
-      setError(err.response?.data?.message || "Failed to create escrow");
+    } catch (err: unknown) {
+      if(axios.isAxiosError(err)){
+        toast.error(err.response?.data?.message || "Failed to create escrow");
+      setError(err.response?.data?.message || "Failed to create escrow")
+      }
+      ;
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
+    <div className="p-5">
       <Heading heading={h.heading} subheading={h.subheading} />
 
-      <div className="flex gap-10 p-10">
-        <form onSubmit={handleSubmit} className="flex-1 border border-gray-300 rounded-2xl py-5 px-10">
+      <div className="block md:flex gap-10 p-2">
+        <form onSubmit={handleSubmit} className="flex-1 border border-gray-300 rounded-2xl py-5 md:px-10 px-5">
           <div>
             <h2 className="font-medium text-xl">Escrow Details</h2>
-            <p className="font-light text-lg text-zinc-500">
+            <p className="font-light md:text-lg text-sm text-zinc-500">
               Enter the transaction details and conditions
             </p>
           </div>
@@ -108,7 +113,7 @@ const CreateEscrow = () => {
               placeholder="recipient@example.com"
               required
             />
-            <p className="text-sm text-gray-700">
+            <p className="text-xs md:text-sm text-gray-700">
               The person who will receive the funds when conditions are met.
             </p>
           </div>
@@ -128,9 +133,28 @@ const CreateEscrow = () => {
               placeholder="0.00"
               required
             />
-            <p className="text-sm text-gray-700">
+            <p className="text-xs md:text-sm text-gray-700">
               Amount in ETB (maximum 99,999)
             </p>
+            {amount && parseFloat(amount) > 0 && (
+              <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-4 flex flex-col gap-1.5">
+                <p className="text-sm font-medium text-amber-800">
+                  App Fee Breakdown
+                </p>
+                <p className="text-sm text-amber-700">
+                  Escrow amount: {(parseFloat(amount)).toFixed(2)} ETB
+                </p>
+                <p className="text-sm text-amber-700">
+                  App fee (15%): {(parseFloat(amount) * 0.15).toFixed(2)} ETB
+                </p>
+                <p className="text-sm font-semibold text-amber-900">
+                  Total you will pay: {(parseFloat(amount) * 1.15).toFixed(2)} ETB
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  The 15% app fee is paid by you at funding. The payee receives the full escrow amount.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -208,6 +232,13 @@ const CreateEscrow = () => {
                   min={new Date().toISOString().split("T")[0]}
                   required
                 />
+                <input 
+                className="rounded bg-gray-200 p-2"
+                type="time"
+                value={expireTime}
+                onChange={(e)=> setexpireTime(e.target.value)}
+                required
+                />
                 <p className="text-sm text-gray-700">
                   Funds will be auto-released on or after this date.
                 </p>
@@ -268,7 +299,7 @@ const CreateEscrow = () => {
           </div>
         </form>
 
-        <div className="flex-1">
+        <div className="flex-1 md:m-0 mt-2">
           <div className="flex flex-col border border-gray-300 p-5 gap-5 rounded-2xl">
             <h2 className="font-semibold">How Escrow Works</h2>
             <div className="flex flex-col gap-3 px-5">
@@ -327,7 +358,7 @@ const CreateEscrow = () => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

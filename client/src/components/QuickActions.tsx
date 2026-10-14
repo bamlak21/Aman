@@ -9,7 +9,7 @@ const QuickActions = () => {
 
   const navigate = useNavigate();
   return (
-    <div className="flex-1 p-5 border rounded-xl border-gray-300 min-w-70">
+    <div className="flex-1 p-5 border rounded-xl border-gray-300 min-w-70 bg-linear-to-bl from-transparent to-gray-100">
       <div className="flex flex-col">
         <h2 className="font-semibold text-lg">Quick Actions</h2>
         <h6 className="text-md font-light text-gray-400">

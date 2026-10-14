@@ -7,6 +7,7 @@ import {
 import { chat, type MyChatItem, type ChatMessage } from "../api/chat.api";
 import { useSocket } from "../hooks/useSocket";
 import { useAuthStore } from "../store/useAuthStore";
+import OfferPanel from "../components/OfferPanel";
 
 const getTypeLabel = (type: string) => {
   const labels: Record<string, string> = {
@@ -38,11 +39,11 @@ const TIME_GROUP_THRESHOLD = 5 * 60 * 1000;
 const isWithinTimeGroup = (a: string, b: string) =>
   new Date(a).getTime() - new Date(b).getTime() < TIME_GROUP_THRESHOLD;
 
-const getInitials = (name?: string) => (name || "U").slice(0, 2).toUpperCase();
+const getInitials = (name?: string) =>name?.split(" ").map((n)=>n[0]).join("").slice(0, 2).toUpperCase()||"U";
 
 const TypingDots = () => (
   <div className="flex items-center gap-3 px-4 py-2">
-    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
       <User size={12} className="text-gray-500" />
     </div>
     <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5 flex items-center gap-1">
@@ -63,7 +64,6 @@ const ChatInbox = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [typingUserId, setTypingUserId] = useState<string | null>(null);
-  const [typingName, setTypingName] = useState("");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,7 +73,7 @@ const ChatInbox = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const {
     isConnected, sendMessage, sendTyping,
@@ -116,7 +116,6 @@ const ChatInbox = () => {
     const unsubTyping = onUserTyping((data: { userId: string; isTyping: boolean; senderName?: string }) => {
       if (data.userId !== user?.id) {
         setTypingUserId(data.isTyping ? data.userId : null);
-        if (data.isTyping) setTypingName(data.senderName || "Someone");
       }
     });
     const unsubOnline = onOnlineUsers((count: number) => setOnlineCount(count));
@@ -193,14 +192,19 @@ const ChatInbox = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-1.5rem)] -m-3 bg-gray-50">
-      <div className={`${
-        showMobileList || !activeDisputeId ? "flex" : "hidden"
-      } md:flex w-full md:w-80 md:min-w-80 flex-col border-r border-gray-200 bg-white`}>
+    <div className="flex justify-center h-[calc(100vh-1.5rem)] border rounded-2xl border-gray-300 bg-gray-50 inset-shadow-sm inset-shadow-gray-300 mt-4 p-6 gap-5 m-1 md:ml-3">
+      <div
+        className={`${
+          showMobileList || !activeDisputeId ? "flex" : "hidden"
+        } md:flex  md:w-80 min-w-75 flex-col border shadow-md/30 shadow-gray-400 border-gray-200 bg-white rounded-3xl`}
+      >
         <div className="px-4 pt-4 pb-3 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900 text-sm mb-3">My Chats</h2>
           <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search chats..."
@@ -209,21 +213,28 @@ const ChatInbox = () => {
               className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-0 focus:border-gray-300 focus:ring-1 focus:ring-gray-300 transition"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+              >
                 <X size={15} className="text-gray-400" />
               </button>
             )}
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-yellow-400"}`} />
-            <span className="text-[11px] text-gray-500">{isConnected ? "Connected" : "Connecting..."}</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-yellow-400"}`}
+            />
+            <span className="text-[11px] text-gray-500">
+              {isConnected ? "Connected" : "Connecting..."}
+            </span>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-4 space-y-3">
-              {[1,2,3].map((i) => (
+              {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3 animate-pulse">
                   <div className="w-10 h-10 rounded-full bg-gray-200" />
                   <div className="flex-1 space-y-2">
@@ -236,8 +247,12 @@ const ChatInbox = () => {
           ) : filteredChats.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-400 px-6">
               <MessageSquare size={28} className="mb-2" />
-              <p className="text-sm font-medium">{searchQuery ? "No matches" : "No active chats"}</p>
-              <p className="text-xs mt-1 text-center">Start a dispute to begin chatting with an admin.</p>
+              <p className="text-sm font-medium">
+                {searchQuery ? "No matches" : "No active chats"}
+              </p>
+              <p className="text-xs mt-1 text-center">
+                Start a dispute to begin chatting with an admin.
+              </p>
             </div>
           ) : (
             filteredChats.map((c) => {
@@ -250,32 +265,54 @@ const ChatInbox = () => {
                     isActive ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    c.dispute.status === "Negotiating" ? "bg-blue-100" : "bg-gray-100"
-                  }`}>
-                    <MessageSquare size={16} className={c.dispute.status === "Negotiating" ? "text-blue-600" : "text-gray-500"} />
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                      c.dispute.status === "Negotiating"
+                        ? "bg-blue-100"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    <MessageSquare
+                      size={16}
+                      className={
+                        c.dispute.status === "Negotiating"
+                          ? "text-blue-600"
+                          : "text-gray-500"
+                      }
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm font-medium truncate ${isActive ? "text-blue-900" : "text-gray-900"}`}>
+                      <p
+                        className={`text-sm font-medium truncate ${isActive ? "text-blue-900" : "text-gray-900"}`}
+                      >
                         {getTypeLabel(c.dispute.dispute_type)}
                       </p>
                       {c.lastMessage && (
-                        <span className="text-[10px] text-gray-400 ml-2 flex-shrink-0">
+                        <span className="text-[10px] text-gray-400 ml-2 shrink-0">
                           {formatTime(new Date(c.lastMessage.createdAt))}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{recentMsgPreview(c)}</p>
-                    <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full mt-1.5 ${
-                      c.dispute.status === "Negotiating" ? "bg-blue-100 text-blue-700" :
-                      c.dispute.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
-                      "bg-green-100 text-green-700"
-                    }`}>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      {recentMsgPreview(c)}
+                    </p>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full mt-1.5 ${
+                        c.dispute.status === "Negotiating"
+                          ? "bg-blue-100 text-blue-700"
+                          : c.dispute.status === "Pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-green-100 text-green-700"
+                      }`}
+                    >
                       {c.dispute.status}
                     </span>
                   </div>
-                  <ChevronRight size={15} className="text-gray-300 mt-2 flex-shrink-0" />
+                  <ChevronRight
+                    size={15}
+                    className="text-gray-300 mt-2 shrink-0"
+                  />
                 </button>
               );
             })
@@ -283,34 +320,42 @@ const ChatInbox = () => {
         </div>
       </div>
 
-      <div className={`${
-        !showMobileList || !activeDisputeId ? "flex" : "hidden"
-      } md:flex flex-1 flex-col bg-white`}>
+      <div
+        className={`${
+          !showMobileList || !activeDisputeId ? "flex" : "hidden"
+        } md:flex flex-1 flex-col min-w-75`}
+      >
         {!activeChat ? (
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                 <MessageSquare size={28} className="text-gray-300" />
               </div>
-              <p className="text-sm font-medium text-gray-500">No chat selected</p>
-              <p className="text-xs text-gray-400 mt-1">Choose a conversation from the list</p>
+              <p className="text-sm font-medium text-gray-500">
+                No chat selected
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Choose a conversation from the list
+              </p>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-200 bg-white">
+            <div className="flex items-center gap-3 md:px-4 px-1 justify-center bg-white py-3 border border-gray-200 rounded-2xl shadow-sm/30 shadow-gray-400">
               <button
                 onClick={() => setShowMobileList(true)}
                 className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg transition"
               >
                 <ArrowLeft size={20} />
               </button>
-              <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
                 <Shield size={18} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 text-sm">
-                  {disputeInfo ? getTypeLabel(disputeInfo.dispute_type) : "Dispute Chat"}
+                  {disputeInfo
+                    ? getTypeLabel(disputeInfo.dispute_type)
+                    : "Dispute Chat"}
                 </h3>
                 <p className="text-xs text-gray-500 truncate mt-0.5">
                   {disputeInfo?.reason || ""}
@@ -318,20 +363,36 @@ const ChatInbox = () => {
               </div>
               <div className="flex items-center gap-2">
                 {onlineCount > 0 && (
-                  <span className="text-[11px] text-gray-400 whitespace-nowrap">· {onlineCount} online</span>
+                  <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                    · {onlineCount} online
+                  </span>
                 )}
-                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full capitalize whitespace-nowrap ${
-                  disputeInfo?.status === "Negotiating" ? "bg-blue-100 text-blue-700" :
-                  disputeInfo?.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-green-100 text-green-700"
-                }`}>
+                <span
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full capitalize whitespace-nowrap ${
+                    disputeInfo?.status === "Negotiating"
+                      ? "bg-blue-100 text-blue-700"
+                      : disputeInfo?.status === "Pending"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-green-100 text-green-700"
+                  }`}
+                >
                   {disputeInfo?.status || ""}
                 </span>
               </div>
             </div>
 
-            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-gray-50 relative">
-              <div className="px-5 py-4 space-y-1">
+            {activeDisputeId && user?.id && (
+              <div className="mt-2">
+                <OfferPanel disputeId={activeDisputeId} userId={user.id} />
+              </div>
+            )}
+
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto rounded-2xl bg-gray-50 mt-2 relative"
+            >
+              <div className="px-2 py-4 space-y-1">
                 {messages.map((msg, idx) => (
                   <div key={msg.id}>
                     {shouldShowDateSeparator(messages, idx) && (
@@ -341,71 +402,108 @@ const ChatInbox = () => {
                         </span>
                       </div>
                     )}
-                    <div className={`flex items-end gap-2 mb-0.5 ${isOwnMessage(msg) ? "flex-row-reverse" : ""} ${
-                      !shouldShowAvatar(messages, idx) ? "mb-0.5" : "mt-3"
-                    }`}>
-                      {shouldShowAvatar(messages, idx) ? (
-                        <div className={`w-8 h-8 rounded-full ${getAvatarColor(msg)} flex items-center justify-center flex-shrink-0 text-xs font-semibold`}>
-                          {getAvatarLabel(msg)}
-                        </div>
-                      ) : (
-                        <div className="w-8 flex-shrink-0" />
-                      )}
-                      <div className={`max-w-[75%] ${isOwnMessage(msg) ? "items-end" : "items-start"} flex flex-col`}>
-                        {shouldShowAvatar(messages, idx) && (
-                          <span className={`text-[10px] font-medium mb-1 px-1 ${isOwnMessage(msg) ? "text-right w-full text-gray-400" : "text-gray-500"}`}>
-                            {getSenderLabel(msg)}
-                          </span>
-                        )}
-                        <div className={`px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                          isOwnMessage(msg)
-                            ? "bg-gray-900 text-white rounded-2xl rounded-br-sm"
-                            : "bg-white border border-gray-200 text-gray-900 rounded-2xl rounded-bl-sm shadow-sm"
-                        }`}>
+                    {msg.senderRole === "system" ? (
+                      <div className="flex justify-center my-2.5">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-white border border-blue-200 px-3.5 py-1.5 rounded-full shadow-sm">
+                          <Shield size={12} className="text-blue-500" />
                           {msg.message}
-                        </div>
-                        <span className={`text-[10px] mt-0.5 px-1 ${isOwnMessage(msg) ? "text-right w-full text-gray-400" : "text-gray-400"}`}>
-                          {formatTime(new Date(msg.createdAt))}
                         </span>
                       </div>
-                    </div>
+                    ) : (
+                      <div
+                        className={`flex items-end gap-2 mb-0.5 ${isOwnMessage(msg) ? "flex-row-reverse" : ""} ${
+                          !shouldShowAvatar(messages, idx) ? "mb-0.5" : "mt-3"
+                        }`}
+                      >
+                        {shouldShowAvatar(messages, idx) ? (
+                          <div
+                            className={`w-8 h-8 rounded-full ${getAvatarColor(msg)} flex items-center justify-center shrink-0 text-xs font-semibold`}
+                          >
+                            {getAvatarLabel(msg)}
+                          </div>
+                        ) : (
+                          <div className="w-8 shrink-0" />
+                        )}
+                        <div
+                          className={`max-w-[75%] ${isOwnMessage(msg) ? "items-end" : "items-start"} flex flex-col`}
+                        >
+                          {shouldShowAvatar(messages, idx) && (
+                            <span
+                              className={`text-[10px] font-medium mb-1 px-1 ${isOwnMessage(msg) ? "text-right w-full text-gray-400" : "text-gray-500"}`}
+                            >
+                              {getSenderLabel(msg)}
+                            </span>
+                          )}
+                          <div
+                            className={`px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break ${
+                              isOwnMessage(msg)
+                                ? "bg-gray-900 text-white rounded-2xl rounded-br-sm"
+                                : "bg-white border border-gray-200 text-gray-900 rounded-2xl rounded-bl-sm shadow-sm"
+                            }`}
+                          >
+                            {msg.message}
+                          </div>
+                          <span
+                            className={`text-[10px] mt-0.5 px-1 ${isOwnMessage(msg) ? "text-right w-full text-gray-400" : "text-gray-400"}`}
+                          >
+                            {formatTime(new Date(msg.createdAt))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {typingUserId && <TypingDots />}
                 <div ref={messagesEndRef} />
               </div>
               {showScrollBtn && (
-                <button onClick={() => scrollToBottom(true)} className="absolute bottom-4 right-4 w-9 h-9 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition z-10">
+                <button
+                  onClick={() => scrollToBottom(true)}
+                  className="absolute bottom-4 right-4 w-9 h-9 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition z-10"
+                >
                   <ChevronDown size={18} className="text-gray-600" />
                 </button>
               )}
             </div>
 
-            <div className="px-5 py-3 border-t border-gray-200 bg-white">
+            <div className="px-5 py-3 border-gray-200 bg-gray-50">
               {isReadOnly ? (
                 <div className="text-center py-3 px-4 bg-gray-100 rounded-xl">
-                  <p className="text-sm text-gray-500 font-medium">Dispute Resolved</p>
-                  <p className="text-xs text-gray-400 mt-0.5">This conversation is read-only</p>
+                  <p className="text-sm text-gray-500 font-medium">
+                    Dispute Resolved
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    This conversation is read-only
+                  </p>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400 transition">
+                  <div className="flex border inset-shadow-xs inset-shadow-gray-200 border-gray-50 items-end gap-2 bg-white shadow-xl rounded-2xl px-4 py-2 focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400 transition">
                     <textarea
                       ref={textareaRef}
                       rows={1}
                       value={input}
                       onChange={handleInputChange}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
                       }}
                       placeholder="Type a message..."
-                      className="flex-1 bg-transparent outline-none resize-none text-sm py-1.5 max-h-[120px] leading-relaxed disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="flex-1 bg-transparent outline-none resize-none text-sm py-1.5 max-h-30 leading-relaxed disabled:text-gray-400 disabled:cursor-not-allowed"
                     />
-                    <button onClick={handleSend} disabled={!input.trim()} className="p-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
+                    <button
+                      onClick={handleSend}
+                      disabled={!input.trim()}
+                      className="p-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    >
                       <Send size={16} />
                     </button>
                   </div>
-                  <p className="text-[10px] text-gray-400 text-center mt-1.5">Press Enter to send · Shift+Enter for new line</p>
+                  <p className="text-[10px] text-gray-400 text-center mt-1.5">
+                    Press Enter to send · Shift+Enter for new line
+                  </p>
                 </>
               )}
             </div>

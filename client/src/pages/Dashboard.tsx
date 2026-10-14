@@ -2,17 +2,18 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
+  Lock,
   ShieldAlert,
   Loader2,
   type LucideProps,
 } from "lucide-react";
 import Cards from "../components/Cards";
 import Heading from "../components/Heading";
-import QuickActions from "../components/QuickActions";
 import RecentTransactions from "../components/RecentTransactions";
 import { useAuthStore } from "../store/useAuthStore";
 import { escrow } from "../api/escrow.api";
 import { useEffect, useState } from "react";
+import Analytics from "../components/Analytics";
 
 type CardData = {
   title: string;
@@ -21,8 +22,10 @@ type CardData = {
     Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
   >;
   text: string;
-  accent: "yellow" | "teal" | "purple" | "red";
+  accent: "yellow" | "teal" | "purple" | "red"|"blue";
 };
+
+const etb = (cents: number) => `${(cents / 100).toFixed(2)} ETB`;
 
 const Dashboard = () => {
   const { user } = useAuthStore();
@@ -30,18 +33,25 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<CardData[]>([
     {
-      title: "Total Value",
+      title: "Available",
       value: 0,
       icon: DollarSign,
-      text: "Across all transactions",
+      text: "Spendable balance",
       accent: "yellow",
+    },
+    {
+      title: "In Escrow",
+      value: 0,
+      icon: Lock,
+      text: "Held by active escrows",
+      accent: "purple",
     },
     {
       title: "Active Escrows",
       value: 0,
       icon: Clock,
       text: "Pending & funded",
-      accent: "teal",
+      accent: "blue",
     },
     {
       title: "Completed",
@@ -60,17 +70,18 @@ const Dashboard = () => {
   ]);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+    const fetchStats = async () => {
     try {
       
-      const total = await escrow.myTotalEscrow();
-      const totalValue = total;
-      
+      const wallet = await escrow.myTotalEscrow();
+      const balance = wallet?.balanceCents ?? 0;
+      const locked = wallet?.lockedCents ?? 0;
+
       const res = await escrow.myEscrow();
       const escrows = res.escrows || [];
+
+      // "Active" is anything still holding money or still waiting on the payer:
+      // funded escrows are locked, created ones are owed a payment.
       const activeEscrows = escrows.filter(
         (e) => e.status === "created" || e.status === "funded"
       ).length;
@@ -79,18 +90,25 @@ const Dashboard = () => {
 
       setStats([
         {
-          title: "Total Value",
-          value: `${(totalValue / 100).toFixed(0)} ETB`,
+          title: "Available",
+          value: etb(balance),
           icon: DollarSign,
-          text: `Across ${escrows.length} transaction${escrows.length !== 1 ? "s" : ""}`,
+          text: "Spendable balance",
           accent: "yellow",
+        },
+        {
+          title: "In Escrow",
+          value: etb(locked),
+          icon: Lock,
+          text: locked > 0 ? "Held by active escrows" : "No funds currently locked",
+          accent: "purple",
         },
         {
           title: "Active Escrows",
           value: activeEscrows,
           icon: Clock,
           text: "Pending & funded",
-          accent: "purple",
+          accent: "blue",
         },
         {
           title: "Completed",
@@ -113,9 +131,12 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+  fetchStats()
+  }, []);
 
+  
   return (
-    <>
+    <div className="p-5 min-h-screen max-w-full ">
       <Heading
         heading={`Welcome Back, ${firstName}.`}
         subheading="Manage your secure escrow transactions"
@@ -127,19 +148,20 @@ const Dashboard = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
             {stats.map((card) => (
               <Cards {...card} key={card.title} />
             ))}
           </div>
 
           <div className="mt-6 flex flex-col lg:flex-row gap-4">
-            <QuickActions />
+              {/* <QuickActions /> */}
+              <Analytics/>
             <RecentTransactions />
           </div>
         </>
       )}
-    </>
+    </div>
   );
 };
 
