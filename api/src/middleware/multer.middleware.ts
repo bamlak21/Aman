@@ -28,11 +28,7 @@ const allowedTypes = [
   "application/pdf",
 ];
 
-const fileFilter = (
-  _req: any,
-  file: any,
-  cb: any
-) => {
+const fileFilter = (_req: any, file: any, cb: any) => {
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {

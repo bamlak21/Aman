@@ -8,6 +8,7 @@ import userRoutes from "./routes/user.routes";
 import adminRoutes from "./routes/admin.routes";
 import disputeRoutes from "./routes/dispute.routes";
 import chatRoutes from "./routes/chat.routes";
+import notificationRoutes from "./routes/notification.routes";
 import { errorHandler } from "./middleware/error.middleware";
 import cookieParser from "cookie-parser";
 import path from "path";
@@ -41,6 +42,7 @@ app.use("/api/escrow", escrowRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/dispute", disputeRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
 
 // Error handler middleware

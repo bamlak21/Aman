@@ -5,12 +5,15 @@ import {
   fetchEscrows,
   initializeEscrowFunding,
   confirmEscrowFunding, 
+  confirmEscrowFundingByTxRef,
   fetchUserAmount,
   releaseFund,
+  fetchTransactions,
 } from "../services/escrow.service";
 import { AuthReq } from "../types/auth";
 import { AppError } from "../utils/AppError";
 import { findUserByEmail } from "../services/user.service";
+import { appFeeCents } from "../utils/fee";
 
 export const create = async (
   req: AuthReq,
@@ -68,6 +71,8 @@ export const create = async (
       id: escrow.id,
       status: escrow.status,
       amount: escrow.amountCents,
+      fee: appFeeCents(escrow.amountCents),
+      totalToPay: escrow.amountCents + appFeeCents(escrow.amountCents),
       releaseCondition: escrow.releaseCondition,
       expiresAt: escrow.expiresAt,
     });  
@@ -197,7 +202,7 @@ export const verifyEscrowPayment = async (
   }
 
   try {
-    const escrow = await confirmEscrowFunding(escrowId, tx_ref,userId);
+    const escrow = await confirmEscrowFunding(escrowId, tx_ref);
 
     res.status(200).json({
       message: "Escrow funded successfully",
@@ -213,21 +218,16 @@ export const webhookHandler = async (
   req: AuthReq,
   res: Response
 ) => {
-  const { tx_ref, status, amount } = req.body;
-  const userId:any = req.user?.id;
+  const { tx_ref, status, event } = req.body;
   
-  console.log("Chapa Webhook received:", { tx_ref, status, amount });
+  console.log("Chapa Webhook received:", { event, tx_ref, status });
 
   if (status === "success" && tx_ref) {
-    const match = tx_ref.match(/^escrow_(.+)$/);
-    if (match) {
-      const escrowId = match[1];
-      try {
-        await confirmEscrowFunding(escrowId, tx_ref,userId);
-        console.log(`Escrow ${escrowId} funded via webhook`);
-      } catch (error) {
-        console.error("Error confirming escrow funding via webhook:", error);
-      }
+    try {
+      await confirmEscrowFundingByTxRef(tx_ref);
+      console.log(`Escrow funded via webhook for tx_ref ${tx_ref}`);
+    } catch (error) {
+      console.error("Error confirming escrow funding via webhook:", error);
     }
   }
 
@@ -259,3 +259,19 @@ export const releaseEscrow = async (
     next(error);
   }
 };
+
+export const fetchUserTxn = async (req:AuthReq,res:Response,next:NextFunction) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    next(new AppError(404, "user not found"));
+    return;
+  }
+
+  try {
+    const fetchTxn = await fetchTransactions(userId)
+    res.status(200).json({message:"all transactions fetched",fetchTxn})
+    return;
+  } catch (error) {
+    next(error);
+  }
+}

@@ -8,6 +8,7 @@ import {
   verifyEscrowPayment,
   webhookHandler,
   releaseEscrow,
+  fetchUserTxn,
 } from "../controllers/escrow.controller";
 import { protect } from "../middleware/auth.middleware";
 
@@ -263,8 +264,6 @@ router.get("/getAmount", protect, getUserAmount);
  *                   type: number
  *                   example: 500
  */
-router.get("/:escrowId", protect, getEscrowById);
-
 /**
  * @swagger
  * /api/escrow/verify-payment:
@@ -304,7 +303,9 @@ router.get("/:escrowId", protect, getEscrowById);
  *       500:
  *         description: Server error during payment verification
  */
-router.get("/verify-payment", verifyEscrowPayment);
+router.get("/verify-payment", protect, verifyEscrowPayment);
+router.get("/fetchTxn", protect, fetchUserTxn);
+router.get("/:escrowId", protect, getEscrowById);
 
 /**
  * @swagger
@@ -326,7 +327,7 @@ router.get("/verify-payment", verifyEscrowPayment);
  *               tx_ref:
  *                 type: string
  *                 description: The transaction reference
- *                 example: "escrow_550e8400-e29b-41d4-a716-446655440000"
+ *                 example: "tx_3f2a9c1e5b7d4a8f"
  *               status:
  *                 type: string
  *                 description: Payment status from Chapa
@@ -543,5 +544,6 @@ router.patch("/:id/fund", protect, fundEscrowByPayer);
  *         description: Internal Server Error
  */
 router.patch("/:id/release", protect, releaseEscrow);
+
 
 export default router;

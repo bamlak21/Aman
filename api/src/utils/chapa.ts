@@ -3,6 +3,9 @@ import { config } from "../config/index";
 
 type ChapaInitializationInput = {
   tx_ref: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   amount: number;
   escrow_id: string;
   customCallbackUrl?: string;
@@ -10,8 +13,8 @@ type ChapaInitializationInput = {
 };
 
 export const initializePayment = async (input: ChapaInitializationInput): Promise<{ checkout_url: string } | null> => {
-  const { tx_ref, amount, escrow_id, customCallbackUrl, returnUrlBase } = input;
-
+  const { tx_ref, amount, escrow_id, firstName, lastName, email, customCallbackUrl, returnUrlBase } = input;
+  
   if (!tx_ref || !amount || !escrow_id) {
     console.error("Missing Required fields for Chapa initialization");
     return null;
@@ -21,6 +24,9 @@ export const initializePayment = async (input: ChapaInitializationInput): Promis
   const returnUrl = returnUrlBase || `${config.frontendUrl}/fund-escrow`;
 
   const reqBody = {
+    first_name: firstName,
+    last_name: lastName,
+    email,
     amount: amount.toString(),
     tx_ref,
     currency: "ETB",
@@ -29,9 +35,7 @@ export const initializePayment = async (input: ChapaInitializationInput): Promis
     customization: {
       title: "Escrow Funding",
     },
-    meta: {
-      escrow_id,
-    },
+
   };
 
   console.log("Chapa Initialization Request:", JSON.stringify(reqBody, null, 2));

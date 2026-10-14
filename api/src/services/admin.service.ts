@@ -1,4 +1,4 @@
-import { and, eq} from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../config/db";
 import bcrypt from "bcrypt";
 import { AppError } from "../utils/AppError";
@@ -8,8 +8,12 @@ import { generateRefreshToken, generateToken } from "../utils/jwt";
 import { Admin } from "../types/admin";
 import { admins} from "../drizzle/schema/admin.schema";
 import { dispute } from "../drizzle/schema/dispute.schema";
-import { escrow, escrowParties, users } from "../drizzle/schema";
+import { disputeEvidence } from "../drizzle/schema/disputeEvidence.schema";
+import { escrow, escrowParties, notification, users } from "../drizzle/schema";
 import { transactions } from "../drizzle/schema/transactions.schema";
+import { disputeOffer } from "../drizzle/schema/disputeOffer.schema";
+import { disputeAuditLog } from "../drizzle/schema/disputeAuditLog.schema";
+import { applyDisputeResolution, insertDisputeEventMessage, OFFER_TTL_MS } from "./dispute.service";
 
 
 
@@ -123,110 +127,191 @@ export const getAllUsers = async () => {
   });
 };
 
-export const fetchAllDispute =async()=>{
+export const fetchAllDispute = async () => {
+  
+  const disputes = await db.query.dispute.findMany();
+  const nameIds = [...new Set([...disputes.flatMap((p) => [p.reported_id,p.reporter_id])])]
+  const names = await db.select({
+    id: users.id, name: users.name
+  }).from(users).where(inArray(users.id, nameIds))
+  
+  const byId = new Map(names.map((u)=>[u.id ,u.name]))
+  const ids = disputes.map((d) => d.id);
 
-  return await db.query.dispute.findMany();
+  const [evidence, offers] = await Promise.all([
+    ids.length
+      ? db.query.disputeEvidence.findMany({ where: inArray(disputeEvidence.dispute_id, ids) })
+      : [],
+    ids.length
+      ? db.query.disputeOffer.findMany({ where: inArray(disputeOffer.dispute_id, ids) })
+      : [],
+  ]);
+
+  const evidenceByDispute = new Map<string, typeof evidence>();
+  for (const e of evidence) {
+    const list = evidenceByDispute.get(e.dispute_id) ?? [];
+    list.push(e);
+    evidenceByDispute.set(e.dispute_id, list);
+  }
+
+  const offersByDispute = new Map<string, typeof offers>();
+  for (const o of offers) {
+    const list = offersByDispute.get(o.dispute_id) ?? [];
+    list.push(o);
+    offersByDispute.set(o.dispute_id, list);
+  }
+
+  return disputes.map((d) => ({
+    ...d,
+    reporter_name:byId.get(d.reporter_id)?? null,
+    reported_name:byId.get(d.reported_id)?? null,
+    evidence: evidenceByDispute.get(d.id) ?? [],
+    offers: offersByDispute.get(d.id) ?? [],
+  
+  }));
 }
 
-export const resolveDisputeService = async(disputeId:string, resolution:string)=>{
-  return await db.transaction(async(tx)=>{
-    const dis = await tx.query.dispute.findFirst({
-      where: eq(dispute.id, disputeId),
+export const resolveDisputeService = async (
+  disputeId: string,
+  resolution: string,
+  options: { note?: string; force?: boolean; adminId?: string } = {},
+) => {
+  const { note, force = false, adminId } = options;
+
+  if (resolution === "refund_payer") {
+    if (!force) {
+      return await db.transaction(async (tx) => {
+        const dis = await tx.query.dispute.findFirst({ where: eq(dispute.id, disputeId) });
+        if (!dis) throw new AppError(404, "Dispute not found");
+        if (dis.status === "Resolved" || dis.status === "Closed") {
+          throw new AppError(400, "Dispute is already resolved");
+        }
+        const esc = await tx.query.escrow.findFirst({ where: eq(escrow.id, dis.escrow_id) });
+        if (!esc) throw new AppError(404, "Escrow not found");
+        const parties = await tx
+          .select()
+          .from(escrowParties)
+          .where(eq(escrowParties.escrowId, esc.id));
+        const payer = parties.find((p) => p.role === "payer");
+        const payee = parties.find((p) => p.role === "payee");
+        if (!payer) throw new AppError(500, "Escrow payer not found");
+
+        await tx
+          .update(disputeOffer)
+          .set({ status: "superseded" })
+          .where(and(eq(disputeOffer.dispute_id, disputeId), eq(disputeOffer.status, "pending")));
+
+        const [offer] = await tx
+          .insert(disputeOffer)
+          .values({
+            dispute_id: disputeId,
+            offered_by: payer.userId,
+            amount_cents: esc.amountCents,
+            terms: note ?? "Full refund proposed by admin",
+            status: "pending",
+            is_counter_offer: false,
+            expires_at: new Date(Date.now() + OFFER_TTL_MS),
+          })
+          .returning();
+
+        await tx
+          .update(dispute)
+          .set({ status: "InNegotiation", resolution: "refund_payer", updatedAt: new Date() })
+          .where(eq(dispute.id, disputeId));
+
+        await insertDisputeEventMessage(
+          tx,
+          disputeId,
+          `An admin proposed a full refund of ${(esc.amountCents / 100).toFixed(2)} ETB. Please respond to the offer.`,
+        );
+
+        if (payee?.userId) {
+          await tx.insert(notification).values({
+            user_id: payee.userId,
+            text: `Refund Proposed. An admin proposed a full refund of ${(esc.amountCents / 100).toFixed(2)} ETB. Please respond to the offer.`,
+            type: "offer",
+          });
+        }
+        if (payer.userId) {
+          await tx.insert(notification).values({
+            user_id: payer.userId,
+            text: "Refund Proposed. An admin proposed a full refund for your dispute. Awaiting the other party's response.",
+            type: "offer",
+          });
+        }
+
+        await tx.insert(disputeAuditLog).values({
+          dispute_id: disputeId,
+          action: "negotiation_started",
+          actor_type: "admin",
+          admin_id: adminId ?? null,
+          new_value: "InNegotiation",
+          details: { offer_id: offer.id, amount_cents: esc.amountCents },
+        });
+
+        return { disputeId, status: "InNegotiation", proposalCreated: true, offer };
+      });
+    }
+
+    return applyDisputeResolution({
+      disputeId,
+      resolution: "refund_payer",
+      note: note ?? "Forced refund by admin ruling",
+      actorType: "admin",
+      adminId: adminId ?? null,
     });
-    if(!dis){
-      throw new AppError(404,"Dispute not found");
+  }
+
+  return applyDisputeResolution({
+    disputeId,
+    resolution: resolution as any,
+    note,
+    actorType: "admin",
+    adminId: adminId ?? null,
+  });
+};
+
+const DISPUTE_STATUS_TRANSITIONS: Record<string, string[]> = {
+  Pending: ["Triaging", "UnderReview", "InNegotiation", "Closed"],
+  Triaging: ["UnderReview", "InMediation", "InArbitration", "InNegotiation", "Closed"],
+  UnderReview: ["InMediation", "InArbitration", "InNegotiation", "Closed"],
+  InNegotiation: ["UnderReview", "InMediation", "InArbitration", "Closed"],
+  InMediation: ["InArbitration", "UnderReview", "Closed"],
+  InArbitration: ["UnderReview", "Closed"],
+  AutoResolved: ["Closed"],
+  Resolved: [],
+  Closed: [],
+};
+
+export const updateDisputeStatusService = async (disputeId: string, status: string, adminId?: string) => {
+  return await db.transaction(async (tx) => {
+    const dis = await tx.query.dispute.findFirst({ where: eq(dispute.id, disputeId) });
+    if (!dis) throw new AppError(404, "Dispute not found");
+
+    const from = dis.status ?? "Pending";
+    if (from === status) throw new AppError(400, "Dispute is already in this status");
+    const allowed = DISPUTE_STATUS_TRANSITIONS[from] ?? [];
+    if (!allowed.includes(status)) {
+      throw new AppError(400, `Cannot move dispute from ${from} to ${status}`);
     }
 
     const [updated] = await tx
       .update(dispute)
-      .set({ resolution: resolution as any, status: "Resolved", updatedAt: new Date() })
+      .set({ status: status as any, updatedAt: new Date() })
       .where(eq(dispute.id, disputeId))
       .returning();
 
-    const esc = await tx.query.escrow.findFirst({
-      where: eq(escrow.id, dis.escrow_id),
+    await tx.insert(disputeAuditLog).values({
+      dispute_id: disputeId,
+      action: "status_changed",
+      actor_type: "admin",
+      admin_id: adminId ?? null,
+      previous_value: from,
+      new_value: status,
     });
-    if(!esc) throw new AppError(404,"Escrow not found");
-
-    const parties = await tx
-      .select()
-      .from(escrowParties)
-      .where(eq(escrowParties.escrowId, esc.id));
-
-    const payer = parties.find((p) => p.role === "payer");
-    const payee = parties.find((p) => p.role === "payee");
-
-    switch(resolution){
-      case "refund_payer":
-        if(payer){
-          await tx.insert(transactions).values({
-            escrowId: esc.id,
-            type: "refund",
-            amountCents: esc.amountCents,
-            fromAccount: payee?.userId || null,
-            toAccount: payer.userId,
-          });
-        }
-        await tx.update(escrow).set({ status: "cancelled", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
-        break;
-
-      case "release_payee":
-        if(payee){
-          await tx.insert(transactions).values({
-            escrowId: esc.id,
-            type: "release",
-            amountCents: esc.amountCents,
-            fromAccount: payer?.userId || null,
-            toAccount: payee.userId,
-          });
-        }
-        await tx.update(escrow).set({ status: "released", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
-        break;
-
-      case "split":
-        const half = Math.floor(esc.amountCents / 2);
-        if(payer){
-          await tx.insert(transactions).values({
-            escrowId: esc.id,
-            type: "refund",
-            amountCents: half,
-            fromAccount: payee?.userId || null,
-            toAccount: payer.userId,
-          });
-        }
-        if(payee){
-          await tx.insert(transactions).values({
-            escrowId: esc.id,
-            type: "release",
-            amountCents: esc.amountCents - half,
-            fromAccount: payer?.userId || null,
-            toAccount: payee.userId,
-          });
-        }
-        await tx.update(escrow).set({ status: "released", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
-        break;
-
-      case "cancel":
-        await tx.update(escrow).set({ status: "cancelled", updatedAt: new Date() }).where(eq(escrow.id, esc.id));
-        break;
-    }
 
     return updated;
   });
-}
-
-export const updateDisputeStatusService = async(disputeId:string, status:string)=>{
-  const [updated] = await db
-    .update(dispute)
-    .set({ status: status as any, updatedAt: new Date() })
-    .where(eq(dispute.id, disputeId))
-    .returning();
-
-  if(!updated){
-    throw new AppError(404,"Dispute not found");
-  }
-
-  return updated;
 }
 
 export const fetchAllTransactionsService = async()=>{
@@ -268,6 +353,30 @@ export const fetchAllTransactionsService = async()=>{
   }
 
   return results;
+}
+
+export const getPlatformStats = async () => {
+  const [feeStats] = await db
+    .select({
+      totalFeesCents: sql<number>`COALESCE(SUM(${transactions.amountCents}), 0)`,
+      feeCount: sql<number>`COUNT(*)`,
+    })
+    .from(transactions)
+    .where(eq(transactions.type, "fee"));
+
+  const [escrowStats] = await db
+    .select({
+      totalEscrows: sql<number>`COUNT(*)`,
+      totalVolumeCents: sql<number>`COALESCE(SUM(${escrow.amountCents}), 0)`,
+    })
+    .from(escrow);
+
+  return {
+    totalFeesCents: Number(feeStats?.totalFeesCents ?? 0),
+    feeCount: Number(feeStats?.feeCount ?? 0),
+    totalEscrows: Number(escrowStats?.totalEscrows ?? 0),
+    totalVolumeCents: Number(escrowStats?.totalVolumeCents ?? 0),
+  };
 }
 export const revokeUserAccess = async(userId:string,isActive:boolean)=>{
 

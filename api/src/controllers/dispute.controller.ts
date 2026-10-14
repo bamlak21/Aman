@@ -1,11 +1,16 @@
 import { NextFunction, Response } from "express";
 import { AuthReq } from "../types/auth";
 import { AppError } from "../utils/AppError";
-import { createDispute } from "../services/dispute.service";
+import {
+  createDispute,
+  myDisputes,
+  listDisputeOffers,
+  createDisputeOffer,
+  acceptDisputeOffer,
+  rejectDisputeOffer,
+  counterDisputeOffer,
+} from "../services/dispute.service";
 import { analyzeDisputeWithAI } from "../services/ai.service";
-import { db } from "../config/db";
-import { admins } from "../drizzle/schema/admin.schema";
-import { eq } from "drizzle-orm";
 
 export const create = async (
   req: AuthReq,
@@ -63,19 +68,109 @@ export const analyze = async (
 ): Promise<Response | void> => {
   try {
     const { disputeId } = req.params;
-    
     if (!disputeId) {
-      return next(new AppError(400, "disputeId is required"));
+      next(new AppError(400, "disputeId is required"));
+      return;
     }
+    await analyzeDisputeWithAI(disputeId);
+    res.json({ message: "Analysis completed" });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    const adminMatch = req.user?.id ? await db.query.admins.findFirst({ where: eq(admins.id, req.user.id) }) : null;
-    if (!adminMatch) {
-      return next(new AppError(403, "Only admins can trigger AI analysis directly"));
+export const my = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    if (!req.user?.id) {
+      next(new AppError(401, "Unauthorized"));
+      return;
     }
+    const disputes = await myDisputes(req.user.id);
+    res.status(200).json({ data: disputes });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    analyzeDisputeWithAI(disputeId).catch(console.error);
+export const listOffers = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { disputeId } = req.params;
+    const offers = await listDisputeOffers(disputeId, req.user?.id as string, req.user?.role);
+    res.status(200).json({ data: offers });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    return res.status(200).json({ message: "AI analysis triggered successfully" });
+export const createOffer = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { disputeId } = req.params;
+    const { amountCents, terms } = req.body;
+    if (amountCents === undefined) {
+      next(new AppError(400, "amountCents is required"));
+      return;
+    }
+    const offer = await createDisputeOffer(disputeId, req.user?.id, Number(amountCents), terms);
+    res.status(201).json(offer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const acceptOffer = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { offerId } = req.params;
+    const result = await acceptDisputeOffer(offerId, req.user?.id, req.user?.role);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectOffer = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { offerId } = req.params;
+    const result = await rejectDisputeOffer(offerId, req.user?.id, req.user?.role);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const counterOffer = async (
+  req: AuthReq,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { offerId } = req.params;
+    const { amountCents, terms } = req.body;
+    if (amountCents === undefined) {
+      next(new AppError(400, "amountCents is required"));
+      return;
+    }
+    const result = await counterDisputeOffer(offerId, req.user?.id, Number(amountCents), terms);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }

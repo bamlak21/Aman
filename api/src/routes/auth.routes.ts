@@ -5,6 +5,7 @@ import {
   refreshToken,
   register,
 } from "../controllers/auth.controller";
+import { getUserByEmail } from "../controllers/user.controller";
 
 const router = Router();
 
@@ -177,5 +178,5 @@ router.post("/token/refresh", refreshToken);
  *         description: Some server error
  */
 router.post("/token/logout", logout);
-
+router.post("/fetchUser", getUserByEmail);
 export default router;

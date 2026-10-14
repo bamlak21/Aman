@@ -42,4 +42,5 @@ const router = Router();
 router.get("/search", protect, searchUserByEmail);
 router.post("/by-email", protect, getUserByEmail);
 
+
 export default router;

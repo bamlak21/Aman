@@ -9,6 +9,11 @@ import { pgEnum } from "drizzle-orm/pg-core";
 import { escrow } from "./escrow.schema";
 
 export const notifType = pgEnum('notification_type',[
+  "escrow",
+  "dispute",
+  "offer",
+  "release",
+  "refund",
   "non_delivery",
   "quality_issue",
   "fraud",

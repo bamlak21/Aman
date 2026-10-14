@@ -5,6 +5,7 @@ import { admins } from "./admin.schema";
 
 export const auditAction = pgEnum("audit_action", [
   "dispute_created",
+  "funds_locked",
   "evidence_uploaded",
   "evidence_viewed",
   "status_changed",

@@ -10,6 +10,7 @@ import {
   updateDisputeStatusService,
   fetchAllTransactionsService,
   revokeUserAccess,
+  getPlatformStats,
 } from "../services/admin.service";
 import { AppError } from "../utils/AppError";
 import {
@@ -254,7 +255,7 @@ export const resolveDispute = async(
   }
 
   const { disputeId } = req.params;
-  const { resolution } = req.body;
+  const { resolution, note, force } = req.body;
 
   if(!disputeId || !resolution){
     next(new AppError(400,'Missing disputeId or resolution'))
@@ -262,7 +263,11 @@ export const resolveDispute = async(
   }
 
   try{
-    const result = await resolveDisputeService(disputeId, resolution);
+    const result = await resolveDisputeService(disputeId, resolution, {
+      note,
+      force,
+      adminId: req.user.id,
+    });
     res.status(200).json(result);
   }
   catch(error){
@@ -289,7 +294,7 @@ export const updateDisputeStatus = async(
   }
 
   try{
-    const result = await updateDisputeStatusService(disputeId, status);
+    const result = await updateDisputeStatusService(disputeId, status, req.user.id);
     res.status(200).json(result);
   }
   catch(error){
@@ -309,6 +314,25 @@ export const fetchAllTransactions = async(
 
   try{
     const data = await fetchAllTransactionsService();
+    res.status(200).json(data);
+  }
+  catch(error){
+    next(error);
+  }
+}
+
+export const fetchPlatformStats = async(
+  req:AuthReq,
+  res:Response,
+  next:NextFunction
+)=>{
+  if(!req.user?.id){
+    next(new AppError(403,'Unauthorized'))
+    return
+  }
+
+  try{
+    const data = await getPlatformStats();
     res.status(200).json(data);
   }
   catch(error){
@@ -336,6 +360,5 @@ export const suspendUser =async (
    catch(error){
    next(error)
    }
- 
 
 }

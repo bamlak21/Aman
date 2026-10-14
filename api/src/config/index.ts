@@ -34,4 +34,5 @@ export const config = {
   localAiUrl:
     process.env.LOCAL_AI_URL ||
     "http://localhost:11434/api/generate",
+  appFeePercent: Number(process.env.APP_FEE_PERCENT) || 15,
 };

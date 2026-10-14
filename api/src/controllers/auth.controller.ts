@@ -155,7 +155,7 @@ export const logout = async (
 
   try {
     await revokeToken(token);
-    res.clearCookie("refresh_token", { path: "/auth/token" });
+    res.clearCookie("refresh_token", { path: "/" });
     res.sendStatus(204);
 
     return;

@@ -1,8 +1,12 @@
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { db } from "../config/db";
-import { escrow, escrowParties, platformBalance, transactions, users } from "../drizzle/schema";
+import { escrow, escrowParties, transactions, users } from "../drizzle/schema";
 import { AppError } from "../utils/AppError";
 import { notification } from "../drizzle/schema/notification.schema";
+import { appFeeCents } from "../utils/fee";
+import { creditWallet, getWallet, lockFunds, releaseLocked } from "./wallet.service";
+import { randomUUID } from "crypto";
+
 
 type CreateEscrowInput = {
   payerId: string;
@@ -72,6 +76,8 @@ export const fetchEscrow = async (id: string, userId: string) => {
   return {
     id: esc.id,
     amount: esc.amountCents,
+    fee: appFeeCents(esc.amountCents),
+    totalToPay: esc.amountCents + appFeeCents(esc.amountCents),
     releaseConditions: esc.releaseCondition,
     status: esc.status,
     expiresAt: esc.expiresAt,
@@ -113,6 +119,8 @@ export const fetchEscrows = async (userId: string) => {
     if (!grouped.has(escrowId)) {
       grouped.set(escrowId, {
         ...row.escrow,
+        fee: appFeeCents(row.escrow.amountCents),
+        totalToPay: row.escrow.amountCents + appFeeCents(row.escrow.amountCents),
         payer: null,
         payee: null,
         myRole: null,
@@ -138,22 +146,8 @@ export const fetchEscrows = async (userId: string) => {
 };
 
 export const fetchUserAmount = async (userId: string) => {
-  const rows = await db
-    .select({ amountCents: transactions.amountCents })
-    .from(transactions)
-    .innerJoin(escrow, eq(escrow.id, transactions.escrowId))
-    .where(
-      and(
-        eq(transactions.toAccount, userId),
-        eq(transactions.type, "release"),
-        eq(escrow.status, "released"),
-      ),
-    );
-
-  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amountCents), 0);
-
-  return totalAmount;
-}
+  return getWallet(userId);
+};
 export const initializeEscrowFunding = async (escrowId: string, userId: string) => {
   const escrowData = await fetchEscrow(escrowId, userId);
 
@@ -166,17 +160,32 @@ export const initializeEscrowFunding = async (escrowId: string, userId: string) 
   );
   if (!payer) throw new AppError(403, "Only the payer can fund escrow");
 
-  const tx_ref = `escrow_${escrowId}`;
+  const tx_ref = `tx_`+ randomUUID().slice(0,15);
+
+  const appFee = appFeeCents(escrowData.amount);
+  const totalCharge = escrowData.amount + appFee;
 
   await db
     .update(escrow)
     .set({ txRef: tx_ref })
     .where(eq(escrow.id, escrowId));
+  
+  const [payerUser] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, payer.userId));
+
+  const nameParts = payerUser?.name.split(" ") || [];
+  const firstName = nameParts.shift() || "";
+  const lastName = nameParts.join(" ") || "";
 
   const { initializePayment } = await import("../utils/chapa");
   const paymentResult = await initializePayment({
+    firstName,
+    lastName,
+    email: payerUser?.email || "",
     tx_ref,
-    amount: escrowData.amount / 100,
+    amount: totalCharge / 100,
     escrow_id: escrowId,
   });
 
@@ -187,10 +196,12 @@ export const initializeEscrowFunding = async (escrowId: string, userId: string) 
   return {
     tx_ref,
     checkout_url: paymentResult.checkout_url,
+    amount_cents: totalCharge,
+    fee_cents: appFee,
   };
 };
 
-export const confirmEscrowFunding = async (escrowId: string, tx_ref: string,userId:string) => {
+export const confirmEscrowFunding = async (escrowId: string, tx_ref: string) => {
   const [escrowRecord] = await db
     .select()
     .from(escrow)
@@ -248,70 +259,45 @@ export const confirmEscrowFunding = async (escrowId: string, tx_ref: string,user
         fromAccount: payer.userId,
         toAccount: null,
       });
-    }
-    const user = await tx.select().from(escrowParties).
-    where(and(
-      eq(escrowParties.userId,userId),
-      eq(escrowParties.role,'payer')
-   ) )
 
-    if(user){
-      await tx.insert(platformBalance).values({
-        user_id:userId,
-        balance_cents:escrowRecord.amountCents
-      })
-    }
-    return updatedEscrow;
-  });
-};
+      // Chapa collected the principal + the app fee. Only the principal belongs to
+      // the payer's wallet; the fee is platform revenue.
+      const appFee = appFeeCents(escrowRecord.amountCents);
 
-export const fundEscrow = async (escrowId: string, userId: string) => {
-  const escrowData = await fetchEscrow(escrowId, userId);
-
-  return await db.transaction(async (tx) => {
-    const payer = escrowData.parties.find(
-      (party) => party.userId === userId && party.role === "payer",
-    );
-    if (!payer) throw new AppError(403, "Only the payer can fund escrow");
-
-    const [updatedEscrow] = await tx
-      .update(escrow)
-      .set({ status: "funded" })
-      .where(and(eq(escrow.id, escrowId), eq(escrow.status, "created")))
-      .returning({
-        id: escrow.id,
-        amount: escrow.amountCents,
-        status: escrow.status,
-        releaseCondition: escrow.releaseCondition,
-        expiresAt: escrow.expiresAt,
+      await tx.insert(transactions).values({
+        escrowId,
+        amountCents: appFee,
+        type: "fee",
+        fromAccount: payer.userId,
+        toAccount: null,
       });
 
-    if (!updatedEscrow) {
-      throw new AppError(409, "Escrow already funded");
+      // The escrow is immediately funded, so the principal moves straight from
+      // the wallet into the locked bucket. Net wallet effect is zero, which is
+      // correct: the payer paid real money, they just cannot spend it yet.
+      await creditWallet(tx, payer.userId, escrowRecord.amountCents);
+      await lockFunds(tx, payer.userId, escrowRecord.amountCents);
     }
-
-    const [txn] = await tx
-      .insert(transactions)
-      .values({
-        escrowId: escrowData.id,
-        amountCents: escrowData.amount,
-        type: "deposit",
-        fromAccount: payer.id,
-        toAccount: null,
-      })
-      .returning();
-    const [balance]  = await db.insert(platformBalance).values({
-      user_id:userId,
-      balance_cents:escrowData.amount
-    }).returning(); 
-
-    console.log(txn);
-    console.log(balance);
-    
 
     return updatedEscrow;
   });
 };
+
+export const confirmEscrowFundingByTxRef = async (tx_ref: string) => {
+  const [escrowRecord] = await db
+    .select({ id: escrow.id })
+    .from(escrow)
+    .where(eq(escrow.txRef, tx_ref))
+    .limit(1);
+
+  if (!escrowRecord) {
+    throw new AppError(404, "Escrow not found for transaction reference");
+  }
+
+  return confirmEscrowFunding(escrowRecord.id, tx_ref);
+};
+
+
 export const releaseFund = async (escrowId: string, userId: string) => {
   const escrowData = await fetchEscrow(escrowId, userId);
 
@@ -360,7 +346,11 @@ export const releaseFund = async (escrowId: string, userId: string) => {
       isRead: false,
       type: "release-fund",
     });
-   
+
+    // The escrow update above already proved the escrow was 'funded' inside this
+    // transaction, so releaseLocked can never race a second release.
+    await releaseLocked(tx, payer.userId, payee.userId, escrowData.amount);
+
     return updatedEscrow;
   });
 };
@@ -417,36 +407,98 @@ export const automaticReleaseFund = async () =>{
   }
 
   for (const [, entry] of escrowMap) {
-    if (!entry.payerId || !entry.payeeId) continue
+    const payerId = entry.payerId
+    const payeeId = entry.payeeId
+    if (!payerId || !payeeId) continue
 
     await db.transaction(async (tx) => {
-      await tx.update(escrow)
+      // Claim the escrow. The status guard is only useful if we check whether the
+      // row was actually claimed — otherwise a concurrent cron pass falls through
+      // and pays the payee twice. This is what released 1,100,000 cents twice.
+      const [claimed] = await tx.update(escrow)
         .set({ status: 'released', updatedAt: new Date() })
-        .where(eq(escrow.id, entry.escrow.id))
+        .where(and(eq(escrow.id, entry.escrow.id), eq(escrow.status, "funded")))
+        .returning({ id: escrow.id });
+
+      if (!claimed) return;
 
       await tx.insert(transactions).values({
         escrowId: entry.escrow.id,
         amountCents: entry.escrow.amountCents,
         type: 'release',
-        fromAccount: entry.payerId,
-        toAccount: entry.payeeId,
+        fromAccount: payerId,
+        toAccount: payeeId,
       })
 
       await tx.insert(notification).values({
         escrow_id: entry.escrow.id,
-        user_id: entry.payeeId,
+        user_id: payeeId,
         text: `payment of ${entry.escrow.amountCents / 100} ETB has been automatically released`,
         isRead: false,
         type: 'release-fund',
       })
       await tx.insert(notification).values({
         escrow_id: entry.escrow.id,
-        user_id: entry.payerId,
+        user_id: payerId,
         text: `payment of ${entry.escrow.amountCents / 100} ETB has been automatically released`,
         isRead: false,
         type: 'release-fund',
       })
+
+      await releaseLocked(tx, payerId, payeeId, entry.escrow.amountCents)
     })
   }
 }
     
+export const fetchTransactions = async (userId:string) => {
+  
+  const data = await db
+    .select({
+      id: transactions.id,
+      escrowId: transactions.escrowId,
+      type: transactions.type,
+      amountCents: transactions.amountCents,
+      fromAccount: transactions.fromAccount,
+      toAccount: transactions.toAccount,
+      createdAt: transactions.createdAt,
+      status: escrow.status,
+      expiresAt: escrow.expiresAt,
+      txRef: escrow.txRef,
+      releaseCondition: escrow.releaseCondition,
+      milestoneDetails: escrow.milestoneDetails,
+    })
+    .from(transactions)
+    .innerJoin(escrow, eq(transactions.escrowId, escrow.id))
+    .where(
+      or(
+        eq(transactions.fromAccount, userId),
+        eq(transactions.toAccount, userId),
+      ),
+    );
+  const allUserIds:any= [
+    ...new Set(
+      data.flatMap((r) => [r.fromAccount, r.toAccount]),
+    ),
+  ];
+  const usersList = allUserIds.length
+    ? await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(inArray(users.id, allUserIds))
+    : [];
+  const userMap = new Map(usersList.map((u) => [u.id, u.name]));
+
+  // Then flatten into Txn shape:
+  const result = data.map((row) => ({
+    ...row,
+    payer: {
+      id: row.fromAccount,
+      name: row.fromAccount ? userMap.get(row.fromAccount) ?? "N/A" : "N/A",
+    },
+    payee: {
+      id: row.toAccount,
+      name: row.toAccount ? userMap.get(row.toAccount) ?? "N/A" : "N/A",
+    },
+  }));
+  return result;
+};
